@@ -58,7 +58,7 @@ export default function Home() {
             <p className="mt-6 text-2xl text-white/80 italic">Keep Britain Moving</p>
           </div>
           <div className="mx-auto w-full max-w-sm">
-            <div className="rotate-1 rounded-3xl bg-white p-4 text-slate-900 shadow-2xl">
+            <div className="rounded-3xl bg-white p-4 text-slate-900 shadow-2xl">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="font-bold text-navy-900">Class 1 (C+E) driver</p>
