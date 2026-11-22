@@ -23,6 +23,7 @@ export function DriverCard({
   note,
   availability,
   availableToday,
+  photo,
   children,
 }: {
   driver: DriverCardData;
@@ -31,12 +32,13 @@ export function DriverCard({
   note?: string | null;
   availability?: string | null;
   availableToday?: boolean;
+  photo?: string | null;
   children?: ReactNode;
 }) {
   return (
     <div className="card p-4">
       <Link href={`/drivers/${driver.id}`} className="flex items-start gap-3">
-        <Avatar name={driver.fullName} />
+        <Avatar name={driver.fullName} src={photo} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-navy-900">{driver.fullName}</p>

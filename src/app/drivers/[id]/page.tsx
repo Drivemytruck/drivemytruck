@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { DOCUMENT_TYPES, canDriveClass, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { ratingSummary } from "@/lib/reviews";
+import { avatarUrl } from "@/lib/avatar";
 import { dayRateLabel, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { ReviewList } from "@/components/Reviews";
@@ -20,7 +21,7 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
   const driver = await db.driverProfile.findUnique({
     where: { id },
     include: {
-      user: { select: { id: true, suspended: true } },
+      user: { select: { id: true, suspended: true, avatarVersion: true } },
       documents: { select: { type: true, status: true, expiresAt: true } },
       availability: { where: { date: { gte: new Date(new Date().toISOString().slice(0, 10)) } }, orderBy: { date: "asc" }, take: 14 },
       _count: { select: { bookings: { where: { status: "COMPLETED" } } } },
@@ -44,7 +45,7 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
     <div className="page max-w-2xl space-y-4">
       <div className="card p-5 text-center sm:p-6">
         <div className="flex justify-center">
-          <Avatar name={driver.fullName} size={84} />
+          <Avatar name={driver.fullName} size={84} src={avatarUrl(driver.user)} />
         </div>
         <h1 className="h1 mt-3">{driver.fullName}</h1>
         <div className="mt-1 flex justify-center">

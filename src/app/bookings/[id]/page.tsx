@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
+import { avatarUrl } from "@/lib/avatar";
 import { dateTime, money } from "@/lib/format";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { StarInput } from "@/components/StarInput";
@@ -20,8 +21,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
     where: { id },
     include: {
       job: true,
-      driver: { include: { user: { select: { email: true } } } },
-      company: { include: { user: { select: { email: true } } } },
+      driver: { include: { user: { select: { email: true, id: true, avatarVersion: true } } } },
+      company: { include: { user: { select: { email: true, id: true, avatarVersion: true } } } },
       reviews: true,
     },
   });
@@ -34,8 +35,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const started = booking.job.startAt.getTime() <= Date.now();
   const other =
     side === "DRIVER"
-      ? { label: "Company", name: booking.company.companyName, phone: booking.company.phone, email: booking.company.user.email, href: `/companies/${booking.companyId}`, contact: booking.company.contactName }
-      : { label: "Driver", name: booking.driver.fullName, phone: booking.driver.phone, email: booking.driver.user.email, href: `/drivers/${booking.driverId}`, contact: null };
+      ? { label: "Company", name: booking.company.companyName, phone: booking.company.phone, email: booking.company.user.email, href: `/companies/${booking.companyId}`, contact: booking.company.contactName, photo: avatarUrl(booking.company.user) }
+      : { label: "Driver", name: booking.driver.fullName, phone: booking.driver.phone, email: booking.driver.user.email, href: `/drivers/${booking.driverId}`, contact: null, photo: avatarUrl(booking.driver.user) };
   const active = booking.status === "CONFIRMED";
 
   return (
@@ -76,7 +77,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
         <div className="card p-5">
           <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">{other.label}</p>
           <Link href={other.href} className="mt-2 flex items-center gap-3">
-            <Avatar name={other.name} />
+            <Avatar name={other.name} src={other.photo} />
             <span className="font-bold text-navy-900">{other.name}</span>
           </Link>
           {booking.status !== "CANCELLED" && (

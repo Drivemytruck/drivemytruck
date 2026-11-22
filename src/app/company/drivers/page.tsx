@@ -5,6 +5,7 @@ import { LICENCE_CLASSES, drivableClasses } from "@/lib/constants";
 import { distanceMiles } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { ratingSummaries } from "@/lib/reviews";
+import { avatarUrl } from "@/lib/avatar";
 import { dayRateLabel, todayDate, windowLabel } from "@/lib/availability";
 import { DriverCard } from "@/components/DriverCard";
 import { Empty } from "@/components/ui";
@@ -33,7 +34,7 @@ export default async function FindDriversPage({
         ? { availability: { some: { date: new Date(`${date}T00:00:00Z`) } } }
         : {}),
     },
-    include: { user: { select: { id: true } }, availability: { where: { date: date ? new Date(`${date}T00:00:00Z`) : todayDate() } } },
+    include: { user: { select: { id: true, avatarVersion: true } }, availability: { where: { date: date ? new Date(`${date}T00:00:00Z`) : todayDate() } } },
     take: 300,
   });
   const list = drivers
@@ -85,6 +86,7 @@ export default async function FindDriversPage({
             <DriverCard
               key={d.id}
               driver={d}
+              photo={avatarUrl(d.user)}
               distance={distance}
               rating={ratings.get(d.user.id)}
               availableToday={!date && d.availability.length > 0}

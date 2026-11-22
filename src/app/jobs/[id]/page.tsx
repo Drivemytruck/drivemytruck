@@ -7,6 +7,7 @@ import { canDriveClass, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { distanceMiles } from "@/lib/geo";
 import { ratingSummary } from "@/lib/reviews";
+import { avatarUrl } from "@/lib/avatar";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Stars, StatusBadge } from "@/components/ui";
 import { applyToJob, withdrawApplication } from "@/app/driver/actions";
@@ -16,7 +17,7 @@ export const metadata: Metadata = { title: "Job" };
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const job = await db.job.findUnique({ where: { id }, include: { company: true, booking: true } });
+  const job = await db.job.findUnique({ where: { id }, include: { company: { include: { user: { select: { id: true, avatarVersion: true } } } }, booking: true } });
   if (!job) notFound();
   if (user.role === "COMPANY") {
     if (job.companyId === user.company?.id) redirect(`/company/jobs/${job.id}`);
@@ -73,7 +74,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
       </div>
 
       <Link href={`/companies/${job.company.id}`} className="card flex items-center gap-3 p-4 hover:border-navy-700">
-        <Avatar name={job.company.companyName} />
+        <Avatar name={job.company.companyName} src={avatarUrl(job.company.user)} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-navy-900">{job.company.companyName}</p>
           <Stars value={rating.average} count={rating.count} />

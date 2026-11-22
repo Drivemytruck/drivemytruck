@@ -65,18 +65,29 @@ enum BookingStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  role         Role
-  suspended    Boolean  @default(false)
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role
+  suspended     Boolean  @default(false)
+  avatarVersion Int      @default(0) // bumps on every photo change, used for cache-busting
+  createdAt     DateTime @default(now())
 
   driver          DriverProfile?
   company         CompanyProfile?
   reviewsWritten  Review[]             @relation("ReviewAuthor")
   reviewsReceived Review[]             @relation("ReviewSubject")
   resetTokens     PasswordResetToken[]
+  avatar          Avatar?
+}
+
+/// Profile photo / company logo, stored small (client resizes to ~320px JPEG).
+model Avatar {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime @updatedAt
 }
 
 model PasswordResetToken {

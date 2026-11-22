@@ -7,6 +7,7 @@ import { drivableClasses, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { distanceMiles } from "@/lib/geo";
 import { ratingSummaries } from "@/lib/reviews";
+import { avatarUrl } from "@/lib/avatar";
 import { dayRateLabel, jobFitsWindow, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { DriverCard } from "@/components/DriverCard";
@@ -33,7 +34,7 @@ export default async function CompanyJobPage({
   const job = await db.job.findUnique({
     where: { id },
     include: {
-      applications: { include: { driver: { include: { user: { select: { id: true } } } } }, orderBy: { createdAt: "asc" } },
+      applications: { include: { driver: { include: { user: { select: { id: true, avatarVersion: true } } } } }, orderBy: { createdAt: "asc" } },
       booking: { include: { driver: true } },
     },
   });
@@ -55,7 +56,7 @@ export default async function CompanyJobPage({
               licenceClasses: { hasSome: classesThatCover(job.licenceClass) },
               availability: { some: { date: jobDay } },
             },
-            include: { user: { select: { id: true } }, availability: { where: { date: jobDay } } },
+            include: { user: { select: { id: true, avatarVersion: true } }, availability: { where: { date: jobDay } } },
             take: 100,
           })
         )
@@ -120,7 +121,7 @@ export default async function CompanyJobPage({
             <h2 className="h2">Drivers who are available ({applicants.length})</h2>
             {applicants.length ? (
               applicants.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message}>
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message}>
                   <ActionForm action={acceptApplicant}>
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={a.driverId} />
@@ -139,7 +140,7 @@ export default async function CompanyJobPage({
             <section className="space-y-2">
               <h2 className="h2">Invited — waiting for driver ({invited.length})</h2>
               {invited.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} />
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} />
               ))}
             </section>
           )}
@@ -151,6 +152,7 @@ export default async function CompanyJobPage({
                 <DriverCard
                   key={d.id}
                   driver={d}
+                  photo={avatarUrl(d.user)}
                   rating={ratings.get(d.user.id)}
                   distance={distance}
                   availability={day ? [`Available ${windowLabel(day)}`, dayRateLabel(day)].filter(Boolean).join(" · ") : null}

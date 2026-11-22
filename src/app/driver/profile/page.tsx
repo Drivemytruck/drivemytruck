@@ -5,11 +5,13 @@ import { LICENCE_CLASSES, SKILLS } from "@/lib/constants";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { CheckboxGroup, Field, StatusBadge } from "@/components/ui";
 import { updateDriverProfile } from "../actions";
+import { PhotoUpload } from "@/components/PhotoUpload";
+import { avatarUrl } from "@/lib/avatar";
 
 export const metadata: Metadata = { title: "My profile" };
 
 export default async function DriverProfilePage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
-  const { driver } = await requireDriver();
+  const { user, driver } = await requireDriver();
   const { welcome } = await searchParams;
   return (
     <div className="page max-w-2xl space-y-5">
@@ -31,6 +33,8 @@ export default async function DriverProfilePage({ searchParams }: { searchParams
           </Link>
         </div>
       </div>
+
+      <PhotoUpload name={driver.fullName} src={avatarUrl(user)} label="Profile photo" />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Link href="/driver/documents" className="card flex items-center justify-between p-4 hover:border-navy-700">

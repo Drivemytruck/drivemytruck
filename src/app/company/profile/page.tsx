@@ -4,11 +4,13 @@ import { requireCompany } from "@/lib/session";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Field, StatusBadge } from "@/components/ui";
 import { updateCompanyProfile } from "../actions";
+import { PhotoUpload } from "@/components/PhotoUpload";
+import { avatarUrl } from "@/lib/avatar";
 
 export const metadata: Metadata = { title: "Company profile" };
 
 export default async function CompanyProfilePage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
-  const { company } = await requireCompany();
+  const { user, company } = await requireCompany();
   const { welcome } = await searchParams;
   return (
     <div className="page max-w-2xl space-y-5">
@@ -30,6 +32,7 @@ export default async function CompanyProfilePage({ searchParams }: { searchParam
           </Link>
         </div>
       </div>
+      <PhotoUpload name={company.companyName} src={avatarUrl(user)} label="Company logo" />
       <div className="card p-5 sm:p-6">
         <ActionForm action={updateCompanyProfile} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">

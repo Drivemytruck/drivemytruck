@@ -87,7 +87,13 @@ export function StatusBadge({ status }: { status: string }) {
   return <span className={`chip ${statusStyles[status] ?? "bg-slate-100 text-slate-700"}`}>{statusText[status] ?? status}</span>;
 }
 
-export function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+export function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: string | null }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt="" width={size} height={size} className="shrink-0 rounded-full bg-slate-100 object-cover" style={{ width: size, height: size }} />
+    );
+  }
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-full bg-navy-900 font-bold text-white"
