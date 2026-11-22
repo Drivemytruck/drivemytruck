@@ -7,6 +7,8 @@ import { DOCUMENT_TYPES, canDriveClass, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { ratingSummary } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
+import { reliabilityOf } from "@/lib/reliability";
+import { ReliabilityBadges } from "@/components/ReliabilityBadges";
 import { dayRateLabel, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { ReviewList } from "@/components/Reviews";
@@ -31,7 +33,10 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
   const isSelf = viewer.driver?.id === driver.id;
   if (viewer.role === "DRIVER" && !isSelf) notFound(); // drivers can't browse other drivers
 
-  const summary = await ratingSummary(driver.user.id);
+  const [summary, reliability] = await Promise.all([
+    ratingSummary(driver.user.id),
+    reliabilityOf({ userId: driver.user.id, driverId: driver.id }),
+  ]);
   const openJobs =
     viewer.company != null
       ? (await db.job.findMany({ where: { companyId: viewer.company.id, status: "OPEN", startAt: { gte: new Date() } }, orderBy: { startAt: "asc" } })).filter((j) =>
@@ -65,9 +70,12 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
             <p className="text-[11px] text-slate-500">years exp.</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
-            <p className="text-lg font-extrabold text-navy-900">{driver._count.bookings}</p>
-            <p className="text-[11px] text-slate-500">jobs done</p>
+            <p className="text-lg font-extrabold text-navy-900">{reliability.score != null ? `${reliability.score}%` : "—"}</p>
+            <p className="text-[11px] text-slate-500">reliable · {driver._count.bookings} jobs</p>
           </div>
+        </div>
+        <div className="mt-3 flex justify-center">
+          <ReliabilityBadges r={reliability} role="DRIVER" />
         </div>
         {driver.bio && <p className="mt-4 text-left whitespace-pre-line text-slate-700">{driver.bio}</p>}
         {driver.skills.length > 0 && (

@@ -8,6 +8,8 @@ import { dateTime, money } from "@/lib/format";
 import { distanceMiles } from "@/lib/geo";
 import { ratingSummary } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
+import { reliabilityOf } from "@/lib/reliability";
+import { ReliabilityBadges } from "@/components/ReliabilityBadges";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Avatar, Stars, StatusBadge } from "@/components/ui";
 import { applyToJob, withdrawApplication } from "@/app/driver/actions";
@@ -27,7 +29,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const application = driver
     ? await db.application.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId: driver.id } } })
     : null;
-  const rating = await ratingSummary(job.company.userId);
+  const [rating, reliability] = await Promise.all([
+    ratingSummary(job.company.userId),
+    reliabilityOf({ userId: job.company.userId, companyId: job.company.id }),
+  ]);
   const distance = driver ? distanceMiles(driver, job) : null;
   const qualified = driver ? canDriveClass(driver.licenceClasses, job.licenceClass) : false;
   const bookedMe = job.booking && driver && job.booking.driverId === driver.id;
@@ -78,6 +83,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-navy-900">{job.company.companyName}</p>
           <Stars value={rating.average} count={rating.count} />
+          <div className="mt-1">
+            <ReliabilityBadges r={reliability} role="COMPANY" />
+          </div>
         </div>
         {job.company.verificationStatus === "VERIFIED" && <StatusBadge status="VERIFIED" />}
       </Link>

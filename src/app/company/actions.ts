@@ -9,6 +9,7 @@ import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
 import { LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
 import { londonToDate } from "@/lib/format";
 import { bookDriver, BookingError } from "@/lib/bookings";
+import { contactDetailsError } from "@/lib/contact-guard";
 import type { ActionState } from "@/components/forms";
 
 const opt = (s: z.ZodString) => s.optional().transform((v) => (v ? v : null));
@@ -28,6 +29,8 @@ export async function updateCompanyProfile(_: ActionState, fd: FormData): Promis
   const parsed = companySchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const { postcode, ...rest } = parsed.data;
+  const contactErr = contactDetailsError(rest.about);
+  if (contactErr) return { error: contactErr };
   const geo = postcode.toUpperCase().replace(/\s/g, "") === (company.postcode ?? "").replace(/\s/g, "")
     ? { postcode: company.postcode!, town: company.town, lat: company.lat, lng: company.lng }
     : await geocodePostcode(postcode);
@@ -55,6 +58,8 @@ export async function createJob(_: ActionState, fd: FormData): Promise<ActionSta
   const parsed = jobSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const d = parsed.data;
+  const contactErr = contactDetailsError(d.description, d.requirements);
+  if (contactErr) return { error: contactErr };
   const startAt = londonToDate(d.date, d.time);
   if (startAt.getTime() < Date.now() - 3600000) return { error: "The start time is in the past." };
   const geo = await geocodePostcode(d.postcode);

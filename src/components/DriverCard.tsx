@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { licenceLabel } from "@/lib/constants";
 import { money } from "@/lib/format";
 import { Avatar, Stars } from "./ui";
+import { ReliabilityBadges } from "./ReliabilityBadges";
+import type { Reliability } from "@/lib/reliability";
 
 export type DriverCardData = {
   id: string;
@@ -24,6 +26,7 @@ export function DriverCard({
   availability,
   availableToday,
   photo,
+  reliability,
   children,
 }: {
   driver: DriverCardData;
@@ -33,6 +36,7 @@ export function DriverCard({
   availability?: string | null;
   availableToday?: boolean;
   photo?: string | null;
+  reliability?: Reliability;
   children?: ReactNode;
 }) {
   return (
@@ -52,6 +56,11 @@ export function DriverCard({
           {rating && (
             <div className="mt-0.5">
               <Stars value={rating.average} count={rating.count} />
+            </div>
+          )}
+          {reliability && (
+            <div className="mt-1">
+              <ReliabilityBadges r={reliability} role="DRIVER" />
             </div>
           )}
         </div>

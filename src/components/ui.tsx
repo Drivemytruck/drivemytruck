@@ -65,6 +65,7 @@ const statusStyles: Record<string, string> = {
   DECLINED: "bg-slate-100 text-slate-500",
   WITHDRAWN: "bg-slate-100 text-slate-500",
   CONFIRMED: "bg-emerald-50 text-emerald-700",
+  NO_SHOW: "bg-brand-50 text-brand-700",
 };
 
 const statusText: Record<string, string> = {
@@ -81,6 +82,7 @@ const statusText: Record<string, string> = {
   DECLINED: "Not selected",
   WITHDRAWN: "Withdrawn",
   CONFIRMED: "Confirmed",
+  NO_SHOW: "Driver no-show",
 };
 
 export function StatusBadge({ status }: { status: string }) {

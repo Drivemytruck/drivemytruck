@@ -5,7 +5,7 @@ import { DOCUMENT_TYPES } from "@/lib/constants";
 import { dateOnly } from "@/lib/format";
 import { Stars, Stat, StatusBadge } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { adminResetPassword, reviewDocument, setCompanyStatus, toggleReviewHidden, toggleSuspend } from "./actions";
+import { adminResetPassword, resolveNoShowDispute, reviewDocument, setCompanyStatus, toggleReviewHidden, toggleSuspend } from "./actions";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -21,6 +21,20 @@ export default async function AdminPage() {
     db.user.findMany({ include: { driver: true, company: true }, orderBy: { createdAt: "desc" }, take: 50 }),
     db.review.findMany({ include: { author: { select: { email: true } }, subject: { select: { email: true } } }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
+  const disputes = await db.booking.findMany({
+    where: { status: "NO_SHOW", disputeStatus: "OPEN" },
+    include: { job: true, driver: true, company: true },
+    orderBy: { noShowAt: "asc" },
+  });
+  const noShowCounts = await db.reliabilityEvent.groupBy({
+    by: ["userId"],
+    where: { type: "NO_SHOW", overturned: false },
+    _count: true,
+    having: { userId: { _count: { gte: 2 } } },
+  });
+  const flagged = noShowCounts.length
+    ? await db.user.findMany({ where: { id: { in: noShowCounts.map((n) => n.userId) } }, include: { driver: true } })
+    : [];
   const label = (t: string) => DOCUMENT_TYPES.find((d) => d.type === t)?.label ?? t;
 
   return (
@@ -32,6 +46,43 @@ export default async function AdminPage() {
         <Stat label="Open jobs" value={openJobs} />
         <Stat label="Bookings" value={bookings} />
       </div>
+
+      {(disputes.length > 0 || flagged.length > 0) && (
+        <section className="space-y-2">
+          <h2 className="h2">⚠ Reliability ({disputes.length + flagged.length})</h2>
+          {disputes.map((b) => (
+            <form key={b.id} action={resolveNoShowDispute} className="card space-y-2 p-4 text-sm">
+              <input type="hidden" name="bookingId" value={b.id} />
+              <p className="font-semibold text-navy-900">
+                No-show dispute: {b.driver.fullName} vs {b.company.companyName}
+              </p>
+              <p className="text-slate-600">
+                Job {dateOnly(b.job.startAt)} · {b.job.town ?? b.job.postcode}
+              </p>
+              <p className="rounded-lg bg-slate-50 p-2 text-slate-700">“{b.disputeText}”</p>
+              <div className="flex gap-2">
+                <button name="decision" value="OVERTURN" className="btn-navy btn-sm">
+                  Driver is right — remove no-show
+                </button>
+                <button name="decision" value="UPHOLD" className="btn-outline btn-sm">
+                  Keep no-show
+                </button>
+              </div>
+            </form>
+          ))}
+          {flagged.map((u) => (
+            <div key={u.id} className="card flex items-center justify-between p-4 text-sm">
+              <span>
+                <a href={u.driver ? `/drivers/${u.driver.id}` : "#"} className="font-semibold text-navy-900 underline">
+                  {u.driver?.fullName ?? u.email}
+                </a>{" "}
+                has {noShowCounts.find((n) => n.userId === u.id)?._count} no-shows
+              </span>
+              {u.suspended ? <span className="chip bg-slate-100 text-slate-600">Suspended</span> : <span className="text-xs text-slate-500">Consider suspending below</span>}
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="h2">Documents to check ({pendingDocs.length})</h2>

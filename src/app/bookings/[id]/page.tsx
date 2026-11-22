@@ -9,7 +9,8 @@ import { dateTime, money } from "@/lib/format";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { StarInput } from "@/components/StarInput";
 import { Avatar, Stars, StatusBadge } from "@/components/ui";
-import { cancelBooking, completeBooking, leaveReview } from "./actions";
+import { cancelBooking, completeBooking, disputeNoShow, leaveReview, reportNoShow } from "./actions";
+import { LATE_CANCEL_HOURS } from "@/lib/reliability";
 
 export const metadata: Metadata = { title: "Booking" };
 
@@ -38,6 +39,9 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
       ? { label: "Company", name: booking.company.companyName, phone: booking.company.phone, email: booking.company.user.email, href: `/companies/${booking.companyId}`, contact: booking.company.contactName, photo: avatarUrl(booking.company.user) }
       : { label: "Driver", name: booking.driver.fullName, phone: booking.driver.phone, email: booking.driver.user.email, href: `/drivers/${booking.driverId}`, contact: null, photo: avatarUrl(booking.driver.user) };
   const active = booking.status === "CONFIRMED";
+  const hoursToStart = (booking.job.startAt.getTime() - Date.now()) / 3600000;
+  const lateCancel = hoursToStart < LATE_CANCEL_HOURS;
+  const reviewable = booking.status === "COMPLETED" || booking.status === "NO_SHOW";
 
   return (
     <div className="page max-w-2xl space-y-4">
@@ -111,14 +115,64 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           ) : (
             <p className="text-sm text-slate-500">You can mark the job as completed once it has started.</p>
           )}
-          <form action={cancelBooking}>
-            <input type="hidden" name="bookingId" value={booking.id} />
-            <button className="btn-ghost btn-sm w-full text-slate-500">Cancel booking</button>
-          </form>
+          {started && side === "COMPANY" && (
+            <details className="rounded-xl border border-slate-200 p-3 text-sm">
+              <summary className="cursor-pointer font-semibold text-brand-700">Driver didn&apos;t turn up?</summary>
+              <p className="mt-2 text-slate-600">
+                Reporting a no-show goes on the driver&apos;s public record and affects their reliability score. Please only report it if
+                the driver didn&apos;t arrive and didn&apos;t cancel. The driver can dispute it.
+              </p>
+              <form action={reportNoShow} className="mt-3">
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <button className="btn w-full border border-brand-500 text-brand-600 hover:bg-brand-50">Report no-show</button>
+              </form>
+            </details>
+          )}
+          {!started && (
+            <details className="text-sm">
+              <summary className="cursor-pointer text-center text-slate-500">Cancel booking</summary>
+              <div className="mt-2 rounded-xl border border-slate-200 p-3">
+                {lateCancel ? (
+                  <p className="text-amber-800">
+                    ⚠ The job starts in less than {LATE_CANCEL_HOURS} hours. Cancelling now counts as a <strong>late cancellation</strong>{" "}
+                    on your public record.
+                  </p>
+                ) : (
+                  <p className="text-slate-600">Please cancel as early as possible so {side === "DRIVER" ? "the company can find someone else" : "the driver can take other work"}.</p>
+                )}
+                <form action={cancelBooking} className="mt-3">
+                  <input type="hidden" name="bookingId" value={booking.id} />
+                  <button className="btn-outline btn-sm w-full">Yes, cancel this booking</button>
+                </form>
+              </div>
+            </details>
+          )}
         </div>
       )}
 
-      {booking.status === "COMPLETED" && side !== "ADMIN" && (
+      {booking.status === "NO_SHOW" && side !== "ADMIN" && (
+        <div className="card border-brand-100 bg-brand-50 p-5 text-sm">
+          <p className="font-semibold text-brand-700">
+            {side === "COMPANY" ? "You reported that the driver didn't turn up." : "The company reported that you didn't turn up."}
+          </p>
+          {booking.disputeStatus === "OPEN" && <p className="mt-1 text-slate-700">The driver has disputed this. Our team is reviewing it.</p>}
+          {booking.disputeStatus === "UPHELD" && <p className="mt-1 text-slate-700">We reviewed the dispute and the no-show stands.</p>}
+          {side === "DRIVER" && !booking.disputeStatus && (
+            <ActionForm action={disputeNoShow} className="mt-3 space-y-2">
+              <input type="hidden" name="bookingId" value={booking.id} />
+              <label className="block">
+                <span className="label">Not true? Tell us what happened</span>
+                <textarea name="text" className="input min-h-20" maxLength={1000} required placeholder="e.g. I arrived at 05:50 and spoke to the night shift manager…" />
+              </label>
+              <SubmitButton className="btn-navy btn-sm" pendingText="Sending…">
+                Dispute no-show
+              </SubmitButton>
+            </ActionForm>
+          )}
+        </div>
+      )}
+
+      {reviewable && side !== "ADMIN" && (
         <div className="card p-5">
           {myReview ? (
             <div>

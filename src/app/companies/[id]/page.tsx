@@ -7,6 +7,8 @@ import { licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { ratingSummary } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
+import { reliabilityOf } from "@/lib/reliability";
+import { ReliabilityBadges } from "@/components/ReliabilityBadges";
 import { ReviewList } from "@/components/Reviews";
 import { Avatar, StatusBadge } from "@/components/ui";
 
@@ -24,7 +26,10 @@ export default async function CompanyPublicPage({ params }: { params: Promise<{ 
     },
   });
   if (!company || company.user.suspended) notFound();
-  const summary = await ratingSummary(company.user.id);
+  const [summary, reliability] = await Promise.all([
+    ratingSummary(company.user.id),
+    reliabilityOf({ userId: company.user.id, companyId: company.id }),
+  ]);
   const isDriver = viewer.role === "DRIVER";
 
   return (
@@ -40,6 +45,9 @@ export default async function CompanyPublicPage({ params }: { params: Promise<{ 
               <span>· {company._count.bookings} jobs completed</span>
             </div>
           </div>
+        </div>
+        <div className="mt-3">
+          <ReliabilityBadges r={reliability} role="COMPANY" />
         </div>
         {company.about && <p className="mt-4 whitespace-pre-line text-slate-700">{company.about}</p>}
       </div>

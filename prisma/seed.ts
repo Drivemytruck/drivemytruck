@@ -24,6 +24,7 @@ function at(daysFromNow: number, hour: number) {
 
 async function main() {
   if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed production");
+  await db.reliabilityEvent.deleteMany();
   await db.review.deleteMany();
   await db.booking.deleteMany();
   await db.application.deleteMany();
@@ -149,6 +150,18 @@ async function main() {
       { bookingId: booking.id, authorId: alex.id, subjectId: midlands.id, rating: 5, comment: "Good truck, paid on time, friendly transport office." },
     ],
   });
+
+  // A confirmed job that started yesterday (Rapid + Marcus) — used to test no-show reporting.
+  const ydayJob = await job(rapid.company!.id, "wolverhampton", { licenceClass: "C", startAt: at(-1, 6), payAmount: 17000, status: "FILLED" });
+  await db.application.create({ data: { jobId: ydayJob.id, driverId: marcus.driver!.id, status: "ACCEPTED" } });
+  await db.booking.create({ data: { jobId: ydayJob.id, driverId: marcus.driver!.id, companyId: rapid.company!.id } });
+
+  // A confirmed job starting in 3 hours (Midlands + Sophie) — cancelling it now is a late cancellation.
+  const soonJob = await db.job.create({
+    data: { companyId: midlands.company!.id, ...places.coventry, licenceClass: "C+E", startAt: new Date(Date.now() + 3 * 3600000), durationHours: 9, payAmount: 23000, status: "FILLED" },
+  });
+  await db.application.create({ data: { jobId: soonJob.id, driverId: sophie.driver!.id, status: "ACCEPTED" } });
+  await db.booking.create({ data: { jobId: soonJob.id, driverId: sophie.driver!.id, companyId: midlands.company!.id } });
 
   console.log("Seeded. Log in with e.g. alex@drivemytruck.test / midlands@drivemytruck.test / admin@drivemytruck.test — password: password123");
 }

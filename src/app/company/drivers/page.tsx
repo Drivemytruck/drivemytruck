@@ -6,6 +6,7 @@ import { distanceMiles } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { ratingSummaries } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
+import { reliabilityFor } from "@/lib/reliability";
 import { dayRateLabel, todayDate, windowLabel } from "@/lib/availability";
 import { DriverCard } from "@/components/DriverCard";
 import { Empty } from "@/components/ui";
@@ -46,7 +47,10 @@ export default async function FindDriversPage({
         (a.distance ?? 9999) - (b.distance ?? 9999),
     )
     .slice(0, 60);
-  const ratings = await ratingSummaries(list.map((x) => x.d.user.id));
+  const [ratings, reliability] = await Promise.all([
+    ratingSummaries(list.map((x) => x.d.user.id)),
+    reliabilityFor(list.map((x) => ({ userId: x.d.user.id, driverId: x.d.id }))),
+  ]);
 
   return (
     <div className="page space-y-5">
@@ -87,6 +91,7 @@ export default async function FindDriversPage({
               key={d.id}
               driver={d}
               photo={avatarUrl(d.user)}
+              reliability={reliability.get(d.user.id)}
               distance={distance}
               rating={ratings.get(d.user.id)}
               availableToday={!date && d.availability.length > 0}

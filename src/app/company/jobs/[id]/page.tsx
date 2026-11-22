@@ -8,6 +8,7 @@ import { dateTime, money } from "@/lib/format";
 import { distanceMiles } from "@/lib/geo";
 import { ratingSummaries } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
+import { reliabilityFor } from "@/lib/reliability";
 import { dayRateLabel, jobFitsWindow, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { DriverCard } from "@/components/DriverCard";
@@ -66,6 +67,10 @@ export default async function CompanyJobPage({
           .slice(0, 10)
       : [];
 
+  const reliability = await reliabilityFor([
+    ...job.applications.map((a) => ({ userId: a.driver.user.id, driverId: a.driverId })),
+    ...suggestions.map((s) => ({ userId: s.d.user.id, driverId: s.d.id })),
+  ]);
   const ratings = await ratingSummaries([
     ...job.applications.map((a) => a.driver.user.id),
     ...suggestions.map((s) => s.d.user.id),
@@ -121,7 +126,7 @@ export default async function CompanyJobPage({
             <h2 className="h2">Drivers who are available ({applicants.length})</h2>
             {applicants.length ? (
               applicants.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message}>
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message}>
                   <ActionForm action={acceptApplicant}>
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={a.driverId} />
@@ -140,7 +145,7 @@ export default async function CompanyJobPage({
             <section className="space-y-2">
               <h2 className="h2">Invited — waiting for driver ({invited.length})</h2>
               {invited.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} />
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} />
               ))}
             </section>
           )}
@@ -153,6 +158,7 @@ export default async function CompanyJobPage({
                   key={d.id}
                   driver={d}
                   photo={avatarUrl(d.user)}
+                  reliability={reliability.get(d.user.id)}
                   rating={ratings.get(d.user.id)}
                   distance={distance}
                   availability={day ? [`Available ${windowLabel(day)}`, dayRateLabel(day)].filter(Boolean).join(" · ") : null}

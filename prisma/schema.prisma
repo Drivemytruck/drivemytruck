@@ -62,6 +62,13 @@ enum BookingStatus {
   CONFIRMED
   COMPLETED
   CANCELLED
+  NO_SHOW
+}
+
+enum ReliabilityEventType {
+  NO_SHOW // driver didn't turn up (reported by company)
+  LATE_CANCEL // cancelled less than 24h before the start
+  CANCEL // cancelled with more notice (shown for context only)
 }
 
 model User {
@@ -79,6 +86,23 @@ model User {
   reviewsReceived Review[]             @relation("ReviewSubject")
   resetTokens     PasswordResetToken[]
   avatar          Avatar?
+  reliability     ReliabilityEvent[]
+}
+
+/// Track record used for reliability scores. Kept separately from bookings so that
+/// history survives when a cancelled job is re-booked.
+model ReliabilityEvent {
+  id         String               @id @default(cuid())
+  type       ReliabilityEventType
+  userId     String // who the event counts against
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role
+  jobId      String
+  bookingId  String?
+  overturned Boolean              @default(false) // e.g. no-show dispute accepted by admin
+  createdAt  DateTime             @default(now())
+
+  @@index([userId])
 }
 
 /// Profile photo / company logo, stored small (client resizes to ~320px JPEG).
@@ -225,16 +249,19 @@ model Application {
 }
 
 model Booking {
-  id          String         @id @default(cuid())
-  jobId       String         @unique
-  job         Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  driverId    String
-  driver      DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  companyId   String
-  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  status      BookingStatus  @default(CONFIRMED)
-  completedAt DateTime?
-  createdAt   DateTime       @default(now())
+  id            String         @id @default(cuid())
+  jobId         String         @unique
+  job           Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  driverId      String
+  driver        DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status        BookingStatus  @default(CONFIRMED)
+  completedAt   DateTime?
+  noShowAt      DateTime?
+  disputeText   String? // driver's side if they dispute a no-show
+  disputeStatus String? // OPEN | UPHELD | OVERTURNED
+  createdAt     DateTime       @default(now())
 
   reviews Review[]
 }

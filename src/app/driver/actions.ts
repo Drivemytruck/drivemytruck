@@ -9,6 +9,7 @@ import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
 import { DOCUMENT_TYPES, LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
 import { bookDriver, BookingError } from "@/lib/bookings";
 import { TIME_RE, todayDate } from "@/lib/availability";
+import { contactDetailsError } from "@/lib/contact-guard";
 import type { ActionState } from "@/components/forms";
 
 const profileSchema = z.object({
@@ -32,6 +33,8 @@ export async function updateDriverProfile(_: ActionState, fd: FormData): Promise
   if (!licenceClasses.length) return { error: "Please choose at least one licence class." };
   const skills = fd.getAll("skills").map(String).slice(0, 30);
   const d = parsed.data;
+  const contactErr = contactDetailsError(d.bio);
+  if (contactErr) return { error: contactErr };
   const geo = d.postcode.toUpperCase().replace(/\s/g, "") === (driver.postcode ?? "").replace(/\s/g, "")
     ? { postcode: driver.postcode!, town: driver.town, lat: driver.lat, lng: driver.lng }
     : await geocodePostcode(d.postcode);
@@ -144,6 +147,8 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
   const { driver } = await requireDriver();
   const jobId = String(fd.get("jobId"));
   const message = String(fd.get("message") ?? "").trim().slice(0, 500) || null;
+  const contactErr = contactDetailsError(message);
+  if (contactErr) return { error: contactErr };
   const job = await db.job.findUnique({ where: { id: jobId } });
   if (!job || job.status !== "OPEN") return { error: "This job is no longer open." };
   if (!driver.licenceClasses.length) return { error: "Add your licence class to your profile first." };

@@ -62,3 +62,20 @@ export async function adminResetPassword(_: unknown, fd: FormData): Promise<{ ok
   await db.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(temp, 12) } });
   return { ok: `Temporary password for ${user.email}: ${temp} — send it to them privately and ask them to change it.` };
 }
+
+/** Decide a driver's dispute of a no-show report. */
+export async function resolveNoShowDispute(fd: FormData) {
+  await requireUser("ADMIN");
+  const booking = await db.booking.findUnique({ where: { id: String(fd.get("bookingId")) } });
+  if (!booking || booking.status !== "NO_SHOW" || booking.disputeStatus !== "OPEN") return;
+  if (fd.get("decision") === "OVERTURN") {
+    await db.$transaction([
+      db.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED", disputeStatus: "OVERTURNED" } }),
+      db.job.update({ where: { id: booking.jobId }, data: { status: "COMPLETED" } }),
+      db.reliabilityEvent.updateMany({ where: { bookingId: booking.id, type: "NO_SHOW" }, data: { overturned: true } }),
+    ]);
+  } else {
+    await db.booking.update({ where: { id: booking.id }, data: { disputeStatus: "UPHELD" } });
+  }
+  revalidatePath("/admin");
+}
