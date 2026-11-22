@@ -36,7 +36,7 @@ Demo logins: `alex@drivemytruck.test` (driver), `midlands@drivemytruck.test` (co
 
 1. Import this GitHub repo in Vercel.
 2. In the Vercel project → **Storage** → add **Neon Postgres** (sets `DATABASE_URL` and `DATABASE_URL_UNPOOLED`).
-3. Add env vars: `SESSION_SECRET` (random 48+ chars) and `ADMIN_EMAIL` (the email that becomes admin on sign-up).
+3. Add env vars: `SESSION_SECRET` (random 48+ chars) and `ADMIN_EMAIL` (the email that becomes admin on sign-up — use a different email from any driver/company account). Changing env vars needs a redeploy to take effect.
 4. Deploy — the build runs `prisma migrate deploy` automatically.
 5. Add the domain `drivemytruck.co.uk` in Vercel → Domains and set the DNS records it shows in Namecheap (Advanced DNS).
 
