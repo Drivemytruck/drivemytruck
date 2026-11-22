@@ -18,7 +18,7 @@ export async function sendEmail({ to, subject, html, text }: { to: string; subje
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || "Drive My Truck <onboarding@resend.dev>",
+        from: senderAddress(),
         to: [to],
         reply_to: SUPPORT_EMAIL,
         subject,
@@ -36,6 +36,13 @@ export async function sendEmail({ to, subject, html, text }: { to: string; subje
     console.error("[email] send failed", e);
     return false;
   }
+}
+
+/** EMAIL_FROM may be a bare address ("hello@…") or a full "Name <hello@…>" — both work. */
+function senderAddress() {
+  const raw = (process.env.EMAIL_FROM || "").trim();
+  if (!raw) return "Drive My Truck <onboarding@resend.dev>";
+  return raw.includes("<") ? raw : `Drive My Truck <${raw}>`;
 }
 
 export function siteUrl() {
