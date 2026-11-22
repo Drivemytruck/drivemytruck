@@ -26,7 +26,8 @@ export async function register(_: ActionState, formData: FormData): Promise<Acti
     return { error: "An account with this email already exists. Try logging in." };
   }
 
-  const isAdmin = !!process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.toLowerCase() === email;
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const isAdmin = !!adminEmail && adminEmail === email;
   const geo = await geocodePostcode(postcode);
   const passwordHash = await bcrypt.hash(password, 12);
 
