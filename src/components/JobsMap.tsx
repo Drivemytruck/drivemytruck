@@ -44,9 +44,9 @@ export default function JobsMap({
   return (
     <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-[65vh] min-h-[380px] w-full rounded-2xl border border-slate-200 shadow-sm">
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        subdomains="abcd"
+        // Standard OpenStreetMap tiles: free, no API key; fine for light use (see OSM tile usage policy).
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
       />
       {home && (
