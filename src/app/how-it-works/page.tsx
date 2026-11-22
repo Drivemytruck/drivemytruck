@@ -46,6 +46,15 @@ export default function HowItWorks() {
           </details>
         ))}
       </div>
+      <div className="card p-5">
+        <h2 className="h2">Questions or feedback?</h2>
+        <p className="mt-1 text-slate-700">
+          Need help: <a className="font-semibold text-brand-600 underline" href="mailto:help@drivemytruck.co.uk">help@drivemytruck.co.uk</a>
+          <br />
+          Partnerships, agencies &amp; everything else:{" "}
+          <a className="font-semibold text-brand-600 underline" href="mailto:hello@drivemytruck.co.uk">hello@drivemytruck.co.uk</a>
+        </p>
+      </div>
       <Link href="/register" className="btn-primary">
         Create a free account
       </Link>

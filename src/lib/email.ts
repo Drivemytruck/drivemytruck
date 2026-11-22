@@ -1,4 +1,5 @@
 import "server-only";
+import { SUPPORT_EMAIL } from "./constants";
 
 /**
  * Sends an email via Resend (https://resend.com) using its REST API.
@@ -19,6 +20,7 @@ export async function sendEmail({ to, subject, html, text }: { to: string; subje
       body: JSON.stringify({
         from: process.env.EMAIL_FROM || "Drive My Truck <onboarding@resend.dev>",
         to: [to],
+        reply_to: SUPPORT_EMAIL,
         subject,
         html,
         text,

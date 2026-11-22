@@ -32,10 +32,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <p>
               <span className="font-semibold text-navy-900">Drive My Truck</span> · Drivers • Jobs • Opportunities
             </p>
-            <nav className="flex gap-4">
+            <nav className="flex flex-wrap gap-x-4 gap-y-2">
               <a href="/how-it-works" className="hover:text-navy-900">How it works</a>
               <a href="/terms" className="hover:text-navy-900">Terms</a>
               <a href="/privacy" className="hover:text-navy-900">Privacy</a>
+              <a href="mailto:help@drivemytruck.co.uk" className="hover:text-navy-900">help@drivemytruck.co.uk</a>
             </nav>
           </div>
         </footer>
