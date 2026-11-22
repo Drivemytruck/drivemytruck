@@ -14,7 +14,6 @@ export type DriverCardData = {
   rateType: "SHIFT" | "HOURLY";
   rateAmount: number | null;
   verificationStatus: string;
-  availableToday?: boolean;
 };
 
 export function DriverCard({
@@ -22,12 +21,16 @@ export function DriverCard({
   rating,
   distance,
   note,
+  availability,
+  availableToday,
   children,
 }: {
   driver: DriverCardData;
   rating?: { average: number | null; count: number };
   distance?: number | null;
   note?: string | null;
+  availability?: string | null;
+  availableToday?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -57,9 +60,9 @@ export function DriverCard({
           </div>
         )}
       </Link>
-      {(driver.skills.length > 0 || driver.experienceYears != null || driver.availableToday) && (
+      {(driver.skills.length > 0 || driver.experienceYears != null || availableToday) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {driver.availableToday && <span className="chip bg-emerald-50 text-emerald-700">● Available today</span>}
+          {availableToday && <span className="chip bg-emerald-50 text-emerald-700">● Available today</span>}
           {driver.experienceYears != null && <span className="chip bg-slate-100 text-slate-700">{driver.experienceYears} yrs exp.</span>}
           {driver.skills.slice(0, 6).map((s) => (
             <span key={s} className="chip bg-navy-50 text-navy-800">
@@ -68,6 +71,7 @@ export function DriverCard({
           ))}
         </div>
       )}
+      {availability && <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">📅 {availability}</p>}
       {note && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">“{note}”</p>}
       {children && <div className="mt-3">{children}</div>}
     </div>

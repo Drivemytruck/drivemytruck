@@ -5,6 +5,7 @@ import { requireCompany } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { Empty, Stat, StatusBadge } from "@/components/ui";
+import { todayDate } from "@/lib/availability";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -24,7 +25,7 @@ export default async function CompanyHome() {
     db.booking.count({
       where: { companyId: company.id, createdAt: { gte: new Date(now.getFullYear(), now.getMonth(), 1) }, status: { not: "CANCELLED" } },
     }),
-    db.driverProfile.count({ where: { availableToday: true, user: { suspended: false } } }),
+    db.availability.count({ where: { date: todayDate(), driver: { user: { suspended: false } } } }),
   ]);
   const open = jobs.filter((j) => j.status === "OPEN");
   const needsAction = jobs.filter((j) => j.booking?.status === "CONFIRMED" && j.startAt < now);

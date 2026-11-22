@@ -92,9 +92,9 @@ async function main() {
 
   for (let i = 0; i < 14; i++) {
     const date = new Date(at(i, 0).toISOString().slice(0, 10) + "T00:00:00Z");
-    if (i % 2 === 0) await db.availability.create({ data: { driverId: alex.driver!.id, date } });
-    if (i % 3 !== 0) await db.availability.create({ data: { driverId: sophie.driver!.id, date, slot: "DAY" } });
-    if (i < 5) await db.availability.create({ data: { driverId: marcus.driver!.id, date, slot: "NIGHT" } });
+    if (i % 2 === 0) await db.availability.create({ data: { driverId: alex.driver!.id, date, startTime: "16:00", endTime: "06:00", rateAmount: 26000, rateType: "SHIFT" } });
+    if (i % 3 !== 0) await db.availability.create({ data: { driverId: sophie.driver!.id, date, startTime: "05:00", endTime: "17:00" } });
+    if (i < 5) await db.availability.create({ data: { driverId: marcus.driver!.id, date } });
   }
 
   const mkCompany = (email: string, companyName: string, place: keyof typeof places, extra: object = {}) =>

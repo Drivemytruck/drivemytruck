@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/session";
 import { DOCUMENT_TYPES, canDriveClass, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { ratingSummary } from "@/lib/reviews";
+import { dayRateLabel, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { ReviewList } from "@/components/Reviews";
 import { Avatar, StatusBadge } from "@/components/ui";
@@ -103,13 +104,13 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
 
       <section className="card p-5">
         <h2 className="h2">Available (next 2 weeks)</h2>
-        {driver.availability.length || driver.availableToday ? (
+        <p className="text-xs text-slate-500">Travels up to {driver.travelRadiusMiles} miles{driver.town ? ` from ${driver.town}` : ""}</p>
+        {driver.availability.length ? (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {driver.availableToday && <span className="chip bg-emerald-500 text-white">Today</span>}
             {driver.availability.map((a) => (
               <span key={a.id} className="chip bg-emerald-50 text-emerald-800">
-                {fmt.format(a.date)}
-                {a.slot !== "ANY" && ` · ${a.slot === "DAY" ? "days" : "nights"}`}
+                {fmt.format(a.date)} · {windowLabel(a)}
+                {dayRateLabel(a) && ` · ${dayRateLabel(a)}`}
               </span>
             ))}
           </div>

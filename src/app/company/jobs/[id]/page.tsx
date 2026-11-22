@@ -7,6 +7,7 @@ import { drivableClasses, licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { distanceMiles } from "@/lib/geo";
 import { ratingSummaries } from "@/lib/reviews";
+import { dayRateLabel, jobFitsWindow, windowLabel } from "@/lib/availability";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { DriverCard } from "@/components/DriverCard";
 import { Empty, StatusBadge } from "@/components/ui";
@@ -44,7 +45,6 @@ export default async function CompanyJobPage({
 
   // Suggest drivers who are available that day (or today), hold the right class and are within their travel radius.
   const jobDay = new Date(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(job.startAt) + "T00:00:00Z");
-  const isToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(new Date()) === jobDay.toISOString().slice(0, 10);
   const suggestions =
     job.status === "OPEN"
       ? (
@@ -53,14 +53,14 @@ export default async function CompanyJobPage({
               id: { notIn: [...alreadyInvolved] },
               user: { suspended: false },
               licenceClasses: { hasSome: classesThatCover(job.licenceClass) },
-              OR: [{ availability: { some: { date: jobDay } } }, ...(isToday ? [{ availableToday: true }] : [])],
+              availability: { some: { date: jobDay } },
             },
-            include: { user: { select: { id: true } } },
+            include: { user: { select: { id: true } }, availability: { where: { date: jobDay } } },
             take: 100,
           })
         )
-          .map((d) => ({ d, distance: distanceMiles(d, job) }))
-          .filter(({ d, distance }) => distance == null || distance <= d.travelRadiusMiles)
+          .map((d) => ({ d, distance: distanceMiles(d, job), day: d.availability[0] }))
+          .filter(({ d, distance, day }) => (distance == null || distance <= d.travelRadiusMiles) && (!day || jobFitsWindow(job.startAt, day)))
           .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999))
           .slice(0, 10)
       : [];
@@ -147,8 +147,14 @@ export default async function CompanyJobPage({
           <section className="space-y-3">
             <h2 className="h2">Suggested drivers available that day</h2>
             {suggestions.length ? (
-              suggestions.map(({ d, distance }) => (
-                <DriverCard key={d.id} driver={d} rating={ratings.get(d.user.id)} distance={distance}>
+              suggestions.map(({ d, distance, day }) => (
+                <DriverCard
+                  key={d.id}
+                  driver={d}
+                  rating={ratings.get(d.user.id)}
+                  distance={distance}
+                  availability={day ? [`Available ${windowLabel(day)}`, dayRateLabel(day)].filter(Boolean).join(" · ") : null}
+                >
                   <ActionForm action={inviteDriver}>
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={d.id} />

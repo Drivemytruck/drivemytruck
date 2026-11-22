@@ -5,6 +5,7 @@ import { LICENCE_CLASSES, drivableClasses } from "@/lib/constants";
 import { distanceMiles } from "@/lib/geo";
 import { todayISO } from "@/lib/format";
 import { ratingSummaries } from "@/lib/reviews";
+import { dayRateLabel, todayDate, windowLabel } from "@/lib/availability";
 import { DriverCard } from "@/components/DriverCard";
 import { Empty } from "@/components/ui";
 
@@ -21,7 +22,6 @@ export default async function FindDriversPage({
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : "";
   const radius = Math.min(Math.max(Number(sp.radius) || 30, 5), 300);
   const verifiedOnly = sp.verified === "1";
-  const isToday = date === todayISO();
 
   const covering = jobClass ? ["C+E", "C", "C1"].filter((c) => drivableClasses([c]).includes(jobClass)) : null;
   const drivers = await db.driverProfile.findMany({
@@ -30,10 +30,10 @@ export default async function FindDriversPage({
       licenceClasses: covering ? { hasSome: covering } : { isEmpty: false },
       ...(verifiedOnly ? { verificationStatus: "VERIFIED" } : {}),
       ...(date
-        ? { OR: [{ availability: { some: { date: new Date(`${date}T00:00:00Z`) } } }, ...(isToday ? [{ availableToday: true }] : [])] }
+        ? { availability: { some: { date: new Date(`${date}T00:00:00Z`) } } }
         : {}),
     },
-    include: { user: { select: { id: true } } },
+    include: { user: { select: { id: true } }, availability: { where: { date: date ? new Date(`${date}T00:00:00Z`) : todayDate() } } },
     take: 300,
   });
   const list = drivers
@@ -82,7 +82,14 @@ export default async function FindDriversPage({
       {list.length ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {list.map(({ d, distance }) => (
-            <DriverCard key={d.id} driver={d} distance={distance} rating={ratings.get(d.user.id)} />
+            <DriverCard
+              key={d.id}
+              driver={d}
+              distance={distance}
+              rating={ratings.get(d.user.id)}
+              availableToday={!date && d.availability.length > 0}
+              availability={date && d.availability[0] ? [`Available ${windowLabel(d.availability[0])}`, dayRateLabel(d.availability[0])].filter(Boolean).join(" · ") : null}
+            />
           ))}
         </div>
       ) : (

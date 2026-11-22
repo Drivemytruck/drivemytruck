@@ -8,6 +8,9 @@ import { drivableClasses, LICENCE_CLASSES } from "@/lib/constants";
 import { ratingSummaries } from "@/lib/reviews";
 import { JobCard } from "@/components/JobCard";
 import { Empty } from "@/components/ui";
+import { JobsMapLoader } from "@/components/JobsMapLoader";
+import { todayDate, windowLabel } from "@/lib/availability";
+import { money, relativeDay, timeOnly } from "@/lib/format";
 import { toggleAvailableToday } from "./actions";
 
 export const metadata: Metadata = { title: "Jobs near you" };
@@ -19,11 +22,12 @@ const WHEN = [
   { v: "week", l: "This week" },
 ];
 
-export default async function DriverHome({ searchParams }: { searchParams: Promise<{ when?: string; class?: string; any?: string }> }) {
+export default async function DriverHome({ searchParams }: { searchParams: Promise<{ when?: string; class?: string; any?: string; view?: string }> }) {
   const { driver } = await requireDriver();
   const sp = await searchParams;
   const when = WHEN.some((w) => w.v === sp.when) ? sp.when! : "all";
   const showAnyDistance = sp.any === "1";
+  const view = sp.view === "map" ? "map" : "list";
 
   const allowed = drivableClasses(driver.licenceClasses);
   const classFilter = sp.class && allowed.includes(sp.class) ? [sp.class] : allowed;
@@ -51,16 +55,18 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
     : [];
 
   const ratings = await ratingSummaries([...new Set(jobs.map((j) => j.company.userId))]);
-  const withDistance = jobs
-    .map((j) => ({ job: j, distance: distanceMiles(driver, j) }))
+  const allWithDistance = jobs.map((j) => ({ job: j, distance: distanceMiles(driver, j) }));
+  const withDistance = allWithDistance
     .filter(({ distance }) => showAnyDistance || distance == null || distance <= driver.travelRadiusMiles)
     .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999) || a.job.startAt.getTime() - b.job.startAt.getTime());
 
   const firstName = driver.fullName.split(" ")[0];
+  const today = await db.availability.findUnique({ where: { driverId_date: { driverId: driver.id, date: todayDate() } } });
+  const availableToday = !!today;
   const profileIncomplete = !driver.licenceClasses.length;
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { when, class: sp.class, any: sp.any, ...patch };
+    const merged = { when, class: sp.class, any: sp.any, view: view === "map" ? "map" : undefined, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v && !(k === "when" && v === "all")) p.set(k, v);
     const s = p.toString();
     return s ? `/driver?${s}` : "/driver";
@@ -86,14 +92,14 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
       <form action={toggleAvailableToday}>
         <button
           className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3.5 text-left font-semibold transition ${
-            driver.availableToday ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-white text-slate-700"
+            availableToday ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-slate-300 bg-white text-slate-700"
           }`}
         >
           <span className="flex items-center gap-2">
-            <span className={`h-3 w-3 rounded-full ${driver.availableToday ? "bg-emerald-500" : "bg-slate-300"}`} />
-            {driver.availableToday ? "Available today" : "Not available today"}
+            <span className={`h-3 w-3 rounded-full ${availableToday ? "bg-emerald-500" : "bg-slate-300"}`} />
+            {availableToday ? `Available today · ${windowLabel(today!)}` : "Not available today"}
           </span>
-          <span className="text-xs font-medium underline">{driver.availableToday ? "Turn off" : "Turn on"}</span>
+          <span className="text-xs font-medium underline">{availableToday ? "Turn off" : "Turn on"}</span>
         </button>
       </form>
 
@@ -130,7 +136,40 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
         )}
       </div>
 
-      {withDistance.length ? (
+      <div className="grid grid-cols-2 rounded-xl border border-slate-300 bg-white p-1 text-sm font-semibold">
+        <Link href={qs({ view: undefined })} className={`rounded-lg py-2 text-center ${view === "list" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
+          ☰ List
+        </Link>
+        <Link href={qs({ view: "map" })} className={`rounded-lg py-2 text-center ${view === "map" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
+          🗺️ Map
+        </Link>
+      </div>
+
+      {view === "map" ? (
+        <div className="relative z-0 space-y-2">
+          <JobsMapLoader
+            home={driver.lat != null && driver.lng != null ? { lat: driver.lat, lng: driver.lng } : null}
+            radiusMiles={driver.travelRadiusMiles}
+            jobs={allWithDistance
+              .filter(({ job }) => job.lat != null && job.lng != null)
+              .map(({ job, distance }) => ({
+                id: job.id,
+                lat: job.lat!,
+                lng: job.lng!,
+                price: money(job.payAmount) + (job.payType === "HOURLY" ? "/h" : ""),
+                title: `${job.licenceClass === "C+E" ? "Class 1" : job.licenceClass === "C" ? "Class 2" : "7.5t"} driver`,
+                company: job.company.companyName,
+                when: `${relativeDay(job.startAt)}, ${timeOnly(job.startAt)}`,
+                place: job.town ?? job.postcode,
+                distance,
+                badge: job.applications[0]?.status,
+              }))}
+          />
+          <p className="text-xs text-slate-500">
+            The circle shows your {driver.travelRadiusMiles}-mile travel area. Red pins are open jobs; dark blue are ones you&apos;ve responded to.
+          </p>
+        </div>
+      ) : withDistance.length ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {withDistance.map(({ job, distance }) => (
             <JobCard

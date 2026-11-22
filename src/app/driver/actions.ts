@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import type { AvailabilitySlot, DocumentType } from "@prisma/client";
+import type { DocumentType, PayType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
 import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
 import { DOCUMENT_TYPES, LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
 import { bookDriver, BookingError } from "@/lib/bookings";
+import { TIME_RE, todayDate } from "@/lib/availability";
 import type { ActionState } from "@/components/forms";
 
 const profileSchema = z.object({
@@ -56,7 +57,11 @@ export async function updateDriverProfile(_: ActionState, fd: FormData): Promise
 
 export async function toggleAvailableToday() {
   const { driver } = await requireDriver();
-  await db.driverProfile.update({ where: { id: driver.id }, data: { availableToday: !driver.availableToday } });
+  // "Available today" is simply today's row in the availability calendar.
+  const date = todayDate();
+  const existing = await db.availability.findUnique({ where: { driverId_date: { driverId: driver.id, date } } });
+  if (existing) await db.availability.delete({ where: { id: existing.id } });
+  else await db.availability.create({ data: { driverId: driver.id, date } });
   revalidatePath("/driver");
 }
 
@@ -95,18 +100,44 @@ export async function saveDocument(_: ActionState, fd: FormData): Promise<Action
 
 export async function saveAvailability(_: ActionState, fd: FormData): Promise<ActionState> {
   const { driver } = await requireDriver();
-  const days = fd.getAll("day").map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-  const range = fd.getAll("range").map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-  const entries = days.map((d) => {
-    const slot = String(fd.get(`slot-${d}`) ?? "ANY");
-    return { date: new Date(`${d}T00:00:00Z`), slot: (["DAY", "NIGHT", "ANY"].includes(slot) ? slot : "ANY") as AvailabilitySlot };
-  });
+  const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+  const days = fd.getAll("day").map(String).filter((d) => isoRe.test(d));
+  const range = fd.getAll("range").map(String).filter((d) => isoRe.test(d));
+
+  // Travel radius + base postcode, shown at the top of the availability page.
+  const radius = Number(fd.get("radius"));
+  if (!Number.isInteger(radius) || radius < 1 || radius > 500) return { error: "Travel distance must be between 1 and 500 miles." };
+  const postcode = String(fd.get("postcode") ?? "").trim();
+  if (!isValidUkPostcode(postcode)) return { error: "Please enter a valid UK postcode." };
+
+  const entries: { date: Date; startTime: string | null; endTime: string | null; rateAmount: number | null; rateType: PayType | null }[] = [];
+  for (const d of days) {
+    const start = String(fd.get(`start-${d}`) ?? "");
+    const end = String(fd.get(`end-${d}`) ?? "");
+    if ((start && !TIME_RE.test(start)) || (end && !TIME_RE.test(end))) return { error: `Please check the times on ${d}.` };
+    if (!!start !== !!end) return { error: `Please give both a start and end time on ${d} (or leave both empty).` };
+    const rateRaw = String(fd.get(`rate-${d}`) ?? "").trim();
+    const rate = rateRaw === "" ? null : Number(rateRaw);
+    if (rate != null && (!Number.isFinite(rate) || rate < 0 || rate > 5000)) return { error: `Please check the rate on ${d}.` };
+    const rt = String(fd.get(`rateType-${d}`) ?? "SHIFT");
+    entries.push({
+      date: new Date(`${d}T00:00:00Z`),
+      startTime: start || null,
+      endTime: end || null,
+      rateAmount: rate != null ? Math.round(rate * 100) : null,
+      rateType: rate != null ? (rt === "HOURLY" ? "HOURLY" : "SHIFT") : null,
+    });
+  }
+
+  const samePc = postcode.toUpperCase().replace(/\s/g, "") === (driver.postcode ?? "").replace(/\s/g, "");
+  const geo = samePc ? {} : await geocodePostcode(postcode);
   await db.$transaction([
+    db.driverProfile.update({ where: { id: driver.id }, data: { travelRadiusMiles: radius, ...geo } }),
     db.availability.deleteMany({ where: { driverId: driver.id, date: { in: range.map((d) => new Date(`${d}T00:00:00Z`)) } } }),
     db.availability.createMany({ data: entries.map((e) => ({ driverId: driver.id, ...e })) }),
   ]);
-  revalidatePath("/driver/availability");
-  return { ok: entries.length ? `Saved — you're available on ${entries.length} day(s).` : "Saved — no days selected." };
+  revalidatePath("/driver", "layout");
+  return { ok: entries.length ? `Saved — you're available on ${entries.length} day(s), up to ${radius} miles away.` : "Saved — no days selected." };
 }
 
 export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionState> {

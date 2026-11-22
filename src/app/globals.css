@@ -82,3 +82,26 @@
 @utility muted {
     @apply text-sm text-slate-500;
 }
+
+/* Job price pins on the map (Leaflet divIcon, plain CSS) */
+.dmt-pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #e31b23;
+  color: #fff;
+  font: 700 12px/1 var(--font-jakarta), system-ui, sans-serif;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+  border: 2px solid #fff;
+  white-space: nowrap;
+}
+.dmt-pin--applied {
+  background: #0b2a5b;
+}
+.leaflet-container {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}

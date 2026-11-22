@@ -136,11 +136,15 @@ model DriverDocument {
 }
 
 model Availability {
-  id       String           @id @default(cuid())
-  driverId String
-  driver   DriverProfile    @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  date     DateTime         @db.Date
-  slot     AvailabilitySlot @default(ANY)
+  id         String           @id @default(cuid())
+  driverId   String
+  driver     DriverProfile    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  date       DateTime         @db.Date
+  slot       AvailabilitySlot @default(ANY) // legacy, kept for old rows
+  startTime  String? // "HH:MM" London time; null = any time
+  endTime    String? // "HH:MM"; may be earlier than startTime for overnight
+  rateAmount Int? // pence; null = use profile rate
+  rateType   PayType?
 
   @@unique([driverId, date])
   @@index([date])
