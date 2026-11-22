@@ -116,11 +116,21 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-export function Stat({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="card p-4">
+export function Stat({ label, value, href }: { label: string; value: ReactNode; href?: string }) {
+  const inner = (
+    <>
       <div className="text-2xl font-extrabold text-navy-900">{value}</div>
-      <div className="text-xs text-slate-500">{label}</div>
-    </div>
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        {label}
+        {href && <span aria-hidden>›</span>}
+      </div>
+    </>
+  );
+  return href ? (
+    <a href={href} className="card block p-4 transition hover:border-navy-700 hover:shadow-md">
+      {inner}
+    </a>
+  ) : (
+    <div className="card p-4">{inner}</div>
   );
 }

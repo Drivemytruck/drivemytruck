@@ -41,10 +41,10 @@ export default async function AdminPage() {
     <div className="page space-y-6">
       <h1 className="h1">Admin</h1>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Drivers" value={drivers} />
-        <Stat label="Companies" value={companies} />
-        <Stat label="Open jobs" value={openJobs} />
-        <Stat label="Bookings" value={bookings} />
+        <Stat label="Drivers" value={drivers} href="/admin/users?role=DRIVER" />
+        <Stat label="Companies" value={companies} href="/admin/users?role=COMPANY" />
+        <Stat label="Open jobs" value={openJobs} href="/admin/jobs?status=OPEN" />
+        <Stat label="Bookings" value={bookings} href="/admin/bookings" />
       </div>
 
       {(disputes.length > 0 || flagged.length > 0) && (
@@ -102,7 +102,7 @@ export default async function AdminPage() {
             <input type="hidden" name="docId" value={d.id} />
             <div className="min-w-0 flex-1 text-sm">
               <p className="font-semibold text-navy-900">
-                {d.driver.fullName} — {label(d.type)}
+                <a href={`/admin/users/${d.driver.userId}`} className="underline">{d.driver.fullName}</a> — {label(d.type)}
               </p>
               <p className="text-slate-600">
                 Ref: <span className="font-mono">{d.reference}</span>
@@ -134,7 +134,7 @@ export default async function AdminPage() {
           <form key={c.id} action={setCompanyStatus} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
             <input type="hidden" name="companyId" value={c.id} />
             <div className="flex-1 text-sm">
-              <p className="font-semibold text-navy-900">{c.companyName}</p>
+              <a href={`/admin/users/${c.userId}`} className="font-semibold text-navy-900 underline">{c.companyName}</a>
               <p className="text-slate-600">
                 Companies House: {c.companiesHouseNumber ? (
                   <a className="underline" target="_blank" rel="noreferrer" href={`https://find-and-update.company-information.service.gov.uk/company/${encodeURIComponent(c.companiesHouseNumber)}`}>
@@ -180,7 +180,9 @@ export default async function AdminPage() {
             <form action={toggleSuspend} className="flex items-center justify-between gap-3 text-sm">
               <input type="hidden" name="userId" value={u.id} />
               <div className="min-w-0">
-                <p className="font-medium text-navy-900">{u.driver?.fullName ?? u.company?.companyName ?? "Admin"}</p>
+                <a href={`/admin/users/${u.id}`} className="font-medium text-navy-900 underline-offset-2 hover:underline">
+                  {u.driver?.fullName ?? u.company?.companyName ?? "Admin"} ›
+                </a>
                 <p className="truncate text-slate-500">
                   {u.role} · {u.email} · joined {dateOnly(u.createdAt)}
                 </p>

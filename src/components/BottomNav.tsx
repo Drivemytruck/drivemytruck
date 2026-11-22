@@ -19,14 +19,20 @@ const items: Record<Role, Item[]> = {
     { href: "/company/drivers", label: "Drivers", icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 10a7 7 0 0 1 14 0m1-10a3 3 0 1 0 0-6m5 16a6 6 0 0 0-4-5.6" },
     { href: "/company/profile", label: "Company", icon: "M4 21V5h10v16M14 9h6v12M7 9h4m-4 4h4m-4 4h4" },
   ],
-  ADMIN: [{ href: "/admin", label: "Admin", icon: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" }],
+  ADMIN: [
+    { href: "/admin", label: "Overview", icon: "M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z" },
+    { href: "/admin/users", label: "Users", icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 10a7 7 0 0 1 14 0m1-10a3 3 0 1 0 0-6m5 16a6 6 0 0 0-4-5.6" },
+    { href: "/admin/jobs", label: "Jobs", icon: "M3 7h18M3 12h18M3 17h12" },
+    { href: "/admin/bookings", label: "Bookings", icon: "M9 5h6m-8 4h10v11H7zM9 3h6v4H9z" },
+    { href: "/admin/map", label: "Map", icon: "M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2zm0 0v14m6-12v14" },
+  ],
 };
 
 export function BottomNav({ role }: { role: Role }) {
   const path = usePathname();
   const list = items[role];
   const active = (href: string) =>
-    path === href || (href !== "/driver" && href !== "/company" && path.startsWith(href));
+    path === href || (!["/driver", "/company", "/admin"].includes(href) && path.startsWith(href));
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden">
       <ul className="grid" style={{ gridTemplateColumns: `repeat(${list.length}, 1fr)` }}>

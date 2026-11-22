@@ -24,13 +24,13 @@ export async function reviewDocument(fd: FormData) {
     where: { id: doc.driverId },
     data: { verificationStatus: allOk ? "VERIFIED" : anyRejected ? "REJECTED" : "PENDING" },
   });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function setCompanyStatus(fd: FormData) {
   await requireUser("ADMIN");
   await db.companyProfile.update({ where: { id: String(fd.get("companyId")) }, data: { verificationStatus: asStatus(fd.get("status")) } });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function toggleSuspend(fd: FormData) {
@@ -39,14 +39,14 @@ export async function toggleSuspend(fd: FormData) {
   if (id === admin.id) return;
   const u = await db.user.findUnique({ where: { id } });
   if (u) await db.user.update({ where: { id }, data: { suspended: !u.suspended } });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 export async function toggleReviewHidden(fd: FormData) {
   await requireUser("ADMIN");
   const r = await db.review.findUnique({ where: { id: String(fd.get("reviewId")) } });
   if (r) await db.review.update({ where: { id: r.id }, data: { hidden: !r.hidden } });
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }
 
 /** Emergency reset: sets a random temporary password and shows it once to the admin. */
@@ -77,5 +77,5 @@ export async function resolveNoShowDispute(fd: FormData) {
   } else {
     await db.booking.update({ where: { id: booking.id }, data: { disputeStatus: "UPHELD" } });
   }
-  revalidatePath("/admin");
+  revalidatePath("/admin", "layout");
 }

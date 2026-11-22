@@ -16,7 +16,13 @@ const links: Record<Role, { href: string; label: string }[]> = {
     { href: "/company/drivers", label: "Find drivers" },
     { href: "/company/profile", label: "Company" },
   ],
-  ADMIN: [{ href: "/admin", label: "Admin" }],
+  ADMIN: [
+    { href: "/admin", label: "Overview" },
+    { href: "/admin/users", label: "Users" },
+    { href: "/admin/jobs", label: "Jobs" },
+    { href: "/admin/bookings", label: "Bookings" },
+    { href: "/admin/map", label: "Map" },
+  ],
 };
 
 export function Header({ user }: { user: { role: Role } | null }) {

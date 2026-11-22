@@ -105,3 +105,6 @@
 .leaflet-container {
   font-family: var(--font-jakarta), system-ui, sans-serif;
 }
+.dmt-pin--muted {
+  background: #94a3b8;
+}
