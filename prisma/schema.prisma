@@ -74,8 +74,21 @@ model User {
 
   driver          DriverProfile?
   company         CompanyProfile?
-  reviewsWritten  Review[]        @relation("ReviewAuthor")
-  reviewsReceived Review[]        @relation("ReviewSubject")
+  reviewsWritten  Review[]             @relation("ReviewAuthor")
+  reviewsReceived Review[]             @relation("ReviewSubject")
+  resetTokens     PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model DriverProfile {
@@ -107,17 +120,17 @@ model DriverProfile {
 }
 
 model DriverDocument {
-  id         String             @id @default(cuid())
-  driverId   String
-  driver     DriverProfile      @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  type       DocumentType
-  reference  String // e.g. last 8 chars of licence, DQC number, tacho card number, RTW share code
-  checkCode  String? // DVLA licence check code (valid 21 days)
-  expiresAt  DateTime?
-  status     VerificationStatus @default(PENDING)
-  adminNote  String?
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  id        String             @id @default(cuid())
+  driverId  String
+  driver    DriverProfile      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  type      DocumentType
+  reference String // e.g. last 8 chars of licence, DQC number, tacho card number, RTW share code
+  checkCode String? // DVLA licence check code (valid 21 days)
+  expiresAt DateTime?
+  status    VerificationStatus @default(PENDING)
+  adminNote String?
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
 
   @@unique([driverId, type])
 }

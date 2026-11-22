@@ -48,3 +48,17 @@ export async function toggleReviewHidden(fd: FormData) {
   if (r) await db.review.update({ where: { id: r.id }, data: { hidden: !r.hidden } });
   revalidatePath("/admin");
 }
+
+/** Emergency reset: sets a random temporary password and shows it once to the admin. */
+export async function adminResetPassword(_: unknown, fd: FormData): Promise<{ ok?: string; error?: string }> {
+  const admin = await requireUser("ADMIN");
+  const id = String(fd.get("userId"));
+  if (id === admin.id) return { error: "Use “Forgot password?” on the login page for your own account." };
+  const user = await db.user.findUnique({ where: { id } });
+  if (!user) return { error: "User not found." };
+  const { randomBytes } = await import("node:crypto");
+  const temp = randomBytes(9).toString("base64url");
+  const bcrypt = (await import("bcryptjs")).default;
+  await db.user.update({ where: { id }, data: { passwordHash: await bcrypt.hash(temp, 12) } });
+  return { ok: `Temporary password for ${user.email}: ${temp} — send it to them privately and ask them to change it.` };
+}

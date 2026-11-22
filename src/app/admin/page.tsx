@@ -4,7 +4,8 @@ import { requireUser } from "@/lib/session";
 import { DOCUMENT_TYPES } from "@/lib/constants";
 import { dateOnly } from "@/lib/format";
 import { Stars, Stat, StatusBadge } from "@/components/ui";
-import { reviewDocument, setCompanyStatus, toggleReviewHidden, toggleSuspend } from "./actions";
+import { ActionForm, SubmitButton } from "@/components/forms";
+import { adminResetPassword, reviewDocument, setCompanyStatus, toggleReviewHidden, toggleSuspend } from "./actions";
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -124,7 +125,8 @@ export default async function AdminPage() {
         <h2 className="h2">Newest users</h2>
         <div className="card divide-y divide-slate-100">
           {users.map((u) => (
-            <form key={u.id} action={toggleSuspend} className="flex items-center justify-between gap-3 p-3 text-sm">
+            <div key={u.id} className="p-3">
+            <form action={toggleSuspend} className="flex items-center justify-between gap-3 text-sm">
               <input type="hidden" name="userId" value={u.id} />
               <div className="min-w-0">
                 <p className="font-medium text-navy-900">{u.driver?.fullName ?? u.company?.companyName ?? "Admin"}</p>
@@ -137,6 +139,15 @@ export default async function AdminPage() {
                 {u.role !== "ADMIN" && <button className="btn-outline btn-sm">{u.suspended ? "Unsuspend" : "Suspend"}</button>}
               </div>
             </form>
+            {u.role !== "ADMIN" && (
+              <ActionForm action={adminResetPassword} className="mt-2">
+                <input type="hidden" name="userId" value={u.id} />
+                <SubmitButton className="text-xs font-medium text-slate-500 underline" pendingText="Resetting…">
+                  Reset password
+                </SubmitButton>
+              </ActionForm>
+            )}
+            </div>
           ))}
         </div>
       </section>
