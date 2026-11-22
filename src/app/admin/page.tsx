@@ -1,0 +1,145 @@
+import type { Metadata } from "next";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/session";
+import { DOCUMENT_TYPES } from "@/lib/constants";
+import { dateOnly } from "@/lib/format";
+import { Stars, Stat, StatusBadge } from "@/components/ui";
+import { reviewDocument, setCompanyStatus, toggleReviewHidden, toggleSuspend } from "./actions";
+
+export const metadata: Metadata = { title: "Admin" };
+
+export default async function AdminPage() {
+  await requireUser("ADMIN");
+  const [drivers, companies, openJobs, bookings, pendingDocs, pendingCompanies, users, reviews] = await Promise.all([
+    db.driverProfile.count(),
+    db.companyProfile.count(),
+    db.job.count({ where: { status: "OPEN" } }),
+    db.booking.count({ where: { status: { not: "CANCELLED" } } }),
+    db.driverDocument.findMany({ where: { status: "PENDING" }, include: { driver: true }, orderBy: { updatedAt: "asc" }, take: 50 }),
+    db.companyProfile.findMany({ where: { verificationStatus: "PENDING" }, orderBy: { createdAt: "asc" }, take: 50 }),
+    db.user.findMany({ include: { driver: true, company: true }, orderBy: { createdAt: "desc" }, take: 50 }),
+    db.review.findMany({ include: { author: { select: { email: true } }, subject: { select: { email: true } } }, orderBy: { createdAt: "desc" }, take: 30 }),
+  ]);
+  const label = (t: string) => DOCUMENT_TYPES.find((d) => d.type === t)?.label ?? t;
+
+  return (
+    <div className="page space-y-6">
+      <h1 className="h1">Admin</h1>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Drivers" value={drivers} />
+        <Stat label="Companies" value={companies} />
+        <Stat label="Open jobs" value={openJobs} />
+        <Stat label="Bookings" value={bookings} />
+      </div>
+
+      <section className="space-y-2">
+        <h2 className="h2">Documents to check ({pendingDocs.length})</h2>
+        <p className="muted">
+          Licence: use the check code at{" "}
+          <a className="underline" href="https://www.gov.uk/check-driving-information" target="_blank" rel="noreferrer">
+            gov.uk/check-driving-information
+          </a>
+          . Right to work:{" "}
+          <a className="underline" href="https://www.gov.uk/view-right-to-work" target="_blank" rel="noreferrer">
+            gov.uk/view-right-to-work
+          </a>
+          .
+        </p>
+        {pendingDocs.map((d) => (
+          <form key={d.id} action={reviewDocument} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+            <input type="hidden" name="docId" value={d.id} />
+            <div className="min-w-0 flex-1 text-sm">
+              <p className="font-semibold text-navy-900">
+                {d.driver.fullName} — {label(d.type)}
+              </p>
+              <p className="text-slate-600">
+                Ref: <span className="font-mono">{d.reference}</span>
+                {d.checkCode && (
+                  <>
+                    {" "}
+                    · Check code: <span className="font-mono">{d.checkCode}</span>
+                  </>
+                )}
+                {d.expiresAt && <> · Expires {dateOnly(d.expiresAt)}</>}
+              </p>
+            </div>
+            <input name="note" className="input sm:w-56" placeholder="Note (if rejecting)" />
+            <div className="flex gap-2">
+              <button name="status" value="VERIFIED" className="btn-navy btn-sm">
+                Verify
+              </button>
+              <button name="status" value="REJECTED" className="btn-outline btn-sm">
+                Reject
+              </button>
+            </div>
+          </form>
+        ))}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="h2">Companies to verify ({pendingCompanies.length})</h2>
+        {pendingCompanies.map((c) => (
+          <form key={c.id} action={setCompanyStatus} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+            <input type="hidden" name="companyId" value={c.id} />
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-navy-900">{c.companyName}</p>
+              <p className="text-slate-600">
+                Companies House: {c.companiesHouseNumber ? (
+                  <a className="underline" target="_blank" rel="noreferrer" href={`https://find-and-update.company-information.service.gov.uk/company/${encodeURIComponent(c.companiesHouseNumber)}`}>
+                    {c.companiesHouseNumber}
+                  </a>
+                ) : "—"}{" "}
+                · O-licence: {c.operatorLicence ?? "—"} · {c.town ?? c.postcode}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button name="status" value="VERIFIED" className="btn-navy btn-sm">
+                Verify
+              </button>
+              <button name="status" value="REJECTED" className="btn-outline btn-sm">
+                Reject
+              </button>
+            </div>
+          </form>
+        ))}
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="h2">Latest reviews</h2>
+        <div className="card divide-y divide-slate-100">
+          {reviews.map((r) => (
+            <form key={r.id} action={toggleReviewHidden} className="flex items-center justify-between gap-3 p-3 text-sm">
+              <input type="hidden" name="reviewId" value={r.id} />
+              <div className="min-w-0">
+                <Stars value={r.rating} /> <span className="text-slate-500">{r.author.email} → {r.subject.email}</span>
+                {r.comment && <p className="truncate text-slate-700">{r.comment}</p>}
+              </div>
+              <button className="btn-outline btn-sm shrink-0">{r.hidden ? "Unhide" : "Hide"}</button>
+            </form>
+          ))}
+        </div>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="h2">Newest users</h2>
+        <div className="card divide-y divide-slate-100">
+          {users.map((u) => (
+            <form key={u.id} action={toggleSuspend} className="flex items-center justify-between gap-3 p-3 text-sm">
+              <input type="hidden" name="userId" value={u.id} />
+              <div className="min-w-0">
+                <p className="font-medium text-navy-900">{u.driver?.fullName ?? u.company?.companyName ?? "Admin"}</p>
+                <p className="truncate text-slate-500">
+                  {u.role} · {u.email} · joined {dateOnly(u.createdAt)}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {u.driver && <StatusBadge status={u.driver.verificationStatus} />}
+                {u.role !== "ADMIN" && <button className="btn-outline btn-sm">{u.suspended ? "Unsuspend" : "Suspend"}</button>}
+              </div>
+            </form>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,149 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import type { AvailabilitySlot, DocumentType } from "@prisma/client";
+import { db } from "@/lib/db";
+import { requireDriver } from "@/lib/session";
+import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
+import { DOCUMENT_TYPES, LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
+import { bookDriver, BookingError } from "@/lib/bookings";
+import type { ActionState } from "@/components/forms";
+
+const profileSchema = z.object({
+  fullName: z.string().trim().min(2, "Please enter your name").max(120),
+  phone: z.string().trim().max(30).optional(),
+  postcode: z.string().trim().refine(isValidUkPostcode, "Please enter a valid UK postcode"),
+  travelRadiusMiles: z.coerce.number().int().min(1).max(500),
+  experienceYears: z.coerce.number().int().min(0).max(60).optional(),
+  rateType: z.enum(["SHIFT", "HOURLY"]),
+  rate: z.coerce.number().min(0).max(5000).optional(),
+  bio: z.string().trim().max(1000).optional(),
+});
+
+export async function updateDriverProfile(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const raw = Object.fromEntries(fd);
+  for (const k of ["phone", "experienceYears", "rate", "bio"]) if (raw[k] === "") delete raw[k];
+  const parsed = profileSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  const licenceClasses = fd.getAll("licenceClasses").map(String).filter((c) => LICENCE_CLASSES.some((l) => l.value === c));
+  if (!licenceClasses.length) return { error: "Please choose at least one licence class." };
+  const skills = fd.getAll("skills").map(String).slice(0, 30);
+  const d = parsed.data;
+  const geo = d.postcode.toUpperCase().replace(/\s/g, "") === (driver.postcode ?? "").replace(/\s/g, "")
+    ? { postcode: driver.postcode!, town: driver.town, lat: driver.lat, lng: driver.lng }
+    : await geocodePostcode(d.postcode);
+
+  await db.driverProfile.update({
+    where: { id: driver.id },
+    data: {
+      fullName: d.fullName,
+      phone: d.phone ?? null,
+      ...geo,
+      travelRadiusMiles: d.travelRadiusMiles,
+      experienceYears: d.experienceYears ?? null,
+      rateType: d.rateType,
+      rateAmount: d.rate != null ? Math.round(d.rate * 100) : null,
+      bio: d.bio ?? null,
+      licenceClasses,
+      skills,
+    },
+  });
+  revalidatePath("/driver", "layout");
+  return { ok: "Profile saved." };
+}
+
+export async function toggleAvailableToday() {
+  const { driver } = await requireDriver();
+  await db.driverProfile.update({ where: { id: driver.id }, data: { availableToday: !driver.availableToday } });
+  revalidatePath("/driver");
+}
+
+const docSchema = z.object({
+  type: z.enum(["LICENCE", "CPC", "TACHO", "RIGHT_TO_WORK", "ADR", "OTHER"]),
+  reference: z.string().trim().min(3, "Please enter the document number / code").max(60),
+  checkCode: z.string().trim().max(20).optional(),
+  expiresAt: z.string().optional(),
+});
+
+export async function saveDocument(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const raw = Object.fromEntries(fd);
+  if (raw.checkCode === "") delete raw.checkCode;
+  if (raw.expiresAt === "") delete raw.expiresAt;
+  const parsed = docSchema.safeParse(raw);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  const { type, reference, checkCode, expiresAt } = parsed.data;
+  const meta = DOCUMENT_TYPES.find((d) => d.type === type);
+  if (meta?.needsCheckCode && !checkCode) return { error: "Please add your DVLA check code so we can verify your licence." };
+  const expiry = expiresAt ? new Date(`${expiresAt}T00:00:00Z`) : null;
+  if (expiry && expiry.getTime() < Date.now()) return { error: "That document has already expired." };
+
+  await db.driverDocument.upsert({
+    where: { driverId_type: { driverId: driver.id, type: type as DocumentType } },
+    create: { driverId: driver.id, type: type as DocumentType, reference, checkCode: checkCode ?? null, expiresAt: expiry },
+    update: { reference, checkCode: checkCode ?? null, expiresAt: expiry, status: "PENDING", adminNote: null },
+  });
+  // Any change to documents means the driver needs re-checking.
+  if (driver.verificationStatus === "VERIFIED") {
+    await db.driverProfile.update({ where: { id: driver.id }, data: { verificationStatus: "PENDING" } });
+  }
+  revalidatePath("/driver/documents");
+  return { ok: `${meta?.label ?? "Document"} saved. We'll check it shortly.` };
+}
+
+export async function saveAvailability(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const days = fd.getAll("day").map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const range = fd.getAll("range").map(String).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  const entries = days.map((d) => {
+    const slot = String(fd.get(`slot-${d}`) ?? "ANY");
+    return { date: new Date(`${d}T00:00:00Z`), slot: (["DAY", "NIGHT", "ANY"].includes(slot) ? slot : "ANY") as AvailabilitySlot };
+  });
+  await db.$transaction([
+    db.availability.deleteMany({ where: { driverId: driver.id, date: { in: range.map((d) => new Date(`${d}T00:00:00Z`)) } } }),
+    db.availability.createMany({ data: entries.map((e) => ({ driverId: driver.id, ...e })) }),
+  ]);
+  revalidatePath("/driver/availability");
+  return { ok: entries.length ? `Saved — you're available on ${entries.length} day(s).` : "Saved — no days selected." };
+}
+
+export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const jobId = String(fd.get("jobId"));
+  const message = String(fd.get("message") ?? "").trim().slice(0, 500) || null;
+  const job = await db.job.findUnique({ where: { id: jobId } });
+  if (!job || job.status !== "OPEN") return { error: "This job is no longer open." };
+  if (!driver.licenceClasses.length) return { error: "Add your licence class to your profile first." };
+  if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: "Your licence class doesn't cover this job." };
+
+  const existing = await db.application.findUnique({ where: { jobId_driverId: { jobId, driverId: driver.id } } });
+  if (existing?.status === "INVITED") {
+    // Accepting an invite books the driver straight away.
+    try {
+      await bookDriver(jobId, driver.id);
+    } catch (e) {
+      return { error: e instanceof BookingError ? e.message : "Something went wrong." };
+    }
+    revalidatePath(`/jobs/${jobId}`);
+    return { ok: "You're booked! The company has your details." };
+  }
+  await db.application.upsert({
+    where: { jobId_driverId: { jobId, driverId: driver.id } },
+    create: { jobId, driverId: driver.id, message },
+    update: { status: "APPLIED", message },
+  });
+  revalidatePath(`/jobs/${jobId}`);
+  return { ok: "Sent! The company will see you're available." };
+}
+
+export async function withdrawApplication(fd: FormData) {
+  const { driver } = await requireDriver();
+  const jobId = String(fd.get("jobId"));
+  await db.application.updateMany({
+    where: { jobId, driverId: driver.id, status: { in: ["APPLIED", "INVITED"] } },
+    data: { status: "WITHDRAWN" },
+  });
+  revalidatePath(`/jobs/${jobId}`);
+}

@@ -1,0 +1,229 @@
+// Drive My Truck — data model (MVP)
+// Money is stored in pence (Int) to avoid floating point issues.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum Role {
+  DRIVER
+  COMPANY
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum PayType {
+  SHIFT
+  HOURLY
+}
+
+enum AvailabilitySlot {
+  DAY
+  NIGHT
+  ANY
+}
+
+enum DocumentType {
+  LICENCE
+  CPC
+  TACHO
+  RIGHT_TO_WORK
+  ADR
+  OTHER
+}
+
+enum JobStatus {
+  OPEN
+  FILLED
+  COMPLETED
+  CANCELLED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  INVITED
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+}
+
+enum BookingStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role
+  suspended    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  driver          DriverProfile?
+  company         CompanyProfile?
+  reviewsWritten  Review[]        @relation("ReviewAuthor")
+  reviewsReceived Review[]        @relation("ReviewSubject")
+}
+
+model DriverProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName           String
+  phone              String?
+  postcode           String?
+  town               String?
+  lat                Float?
+  lng                Float?
+  travelRadiusMiles  Int                @default(25)
+  licenceClasses     String[]
+  skills             String[]
+  experienceYears    Int?
+  rateType           PayType            @default(SHIFT)
+  rateAmount         Int? // pence
+  bio                String?
+  availableToday     Boolean            @default(false)
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  documents    DriverDocument[]
+  availability Availability[]
+  applications Application[]
+  bookings     Booking[]
+}
+
+model DriverDocument {
+  id         String             @id @default(cuid())
+  driverId   String
+  driver     DriverProfile      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  type       DocumentType
+  reference  String // e.g. last 8 chars of licence, DQC number, tacho card number, RTW share code
+  checkCode  String? // DVLA licence check code (valid 21 days)
+  expiresAt  DateTime?
+  status     VerificationStatus @default(PENDING)
+  adminNote  String?
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@unique([driverId, type])
+}
+
+model Availability {
+  id       String           @id @default(cuid())
+  driverId String
+  driver   DriverProfile    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  date     DateTime         @db.Date
+  slot     AvailabilitySlot @default(ANY)
+
+  @@unique([driverId, date])
+  @@index([date])
+}
+
+model CompanyProfile {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName          String
+  companiesHouseNumber String?
+  operatorLicence      String?
+  contactName          String?
+  phone                String?
+  postcode             String?
+  town                 String?
+  lat                  Float?
+  lng                  Float?
+  about                String?
+  verificationStatus   VerificationStatus @default(PENDING)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  jobs     Job[]
+  bookings Booking[]
+}
+
+model Job {
+  id            String         @id @default(cuid())
+  companyId     String
+  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  licenceClass  String
+  postcode      String
+  town          String?
+  lat           Float?
+  lng           Float?
+  startAt       DateTime
+  durationHours Float
+  payType       PayType        @default(SHIFT)
+  payAmount     Int // pence
+  jobType       String?
+  vehicleType   String?
+  description   String?
+  requirements  String?
+  status        JobStatus      @default(OPEN)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  applications Application[]
+  booking      Booking?
+
+  @@index([status, startAt])
+}
+
+model Application {
+  id        String            @id @default(cuid())
+  jobId     String
+  job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  driverId  String
+  driver    DriverProfile     @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  status    ApplicationStatus @default(APPLIED)
+  message   String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([jobId, driverId])
+}
+
+model Booking {
+  id          String         @id @default(cuid())
+  jobId       String         @unique
+  job         Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  driverId    String
+  driver      DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  companyId   String
+  company     CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status      BookingStatus  @default(CONFIRMED)
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  reviews Review[]
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   User     @relation("ReviewSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  rating    Int // 1-5
+  comment   String?
+  hidden    Boolean  @default(false) // admin moderation
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, authorId])
+  @@index([subjectId])
+}
