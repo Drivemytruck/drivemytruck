@@ -22,7 +22,7 @@ export default function Privacy() {
       <h2 className="h2">Your rights</h2>
       <p>
         Under UK GDPR you can ask for a copy of your data, correct it or ask us to delete your account. Contact us at
-        <a className="underline" href="mailto:help@drivemytruck.co.uk">help@drivemytruck.co.uk</a>.
+        <a className="underline" href="mailto:hello@drivemytruck.co.uk">hello@drivemytruck.co.uk</a>.
       </p>
     </div>
   );

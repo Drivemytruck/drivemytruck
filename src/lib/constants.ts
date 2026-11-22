@@ -95,7 +95,7 @@ export const DOCUMENT_TYPES = [
 ] as const;
 
 export const PLATFORM_NAME = "Drive My Truck";
-export const SUPPORT_EMAIL = "help@drivemytruck.co.uk";
+export const SUPPORT_EMAIL = "hello@drivemytruck.co.uk";
 export const CONTACT_EMAIL = "hello@drivemytruck.co.uk";
 
 /** Higher categories cover lower ones: C+E can drive C and C1, C can drive C1. */
