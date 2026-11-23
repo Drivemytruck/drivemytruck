@@ -6,6 +6,7 @@ import { licenceLabel } from "@/lib/constants";
 import { dateTime, money } from "@/lib/format";
 import { Empty, Stat, StatusBadge } from "@/components/ui";
 import { todayDate } from "@/lib/availability";
+import { daysLeft, isLive } from "@/lib/jobs";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -82,13 +83,30 @@ export default async function CompanyHome() {
             <Link key={j.id} href={`/company/jobs/${j.id}`} className="card flex items-center justify-between gap-3 p-4 hover:border-navy-700">
               <div className="min-w-0">
                 <p className="font-semibold text-navy-900">
+                  {j.kind === "PERMANENT" && "🤝 "}
                   {licenceLabel(j.licenceClass)} · {j.town ?? j.postcode}
                 </p>
-                <p className="text-sm text-slate-500">{dateTime(j.startAt)}</p>
+                <p className="text-sm text-slate-500">
+                  {j.kind === "PERMANENT" ? `Permanent · ${j.schedule ?? ""}` : dateTime(j.startAt)}
+                </p>
                 <div className="mt-1.5 flex flex-wrap gap-2">
-                  <StatusBadge status={j.status} />
+                  {j.kind === "PERMANENT" && j.status === "OPEN" ? (
+                    isLive(j) ? (
+                      <span className={`chip ${daysLeft(j.expiresAt) <= 3 ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>
+                        Live · {daysLeft(j.expiresAt)}d left
+                      </span>
+                    ) : (
+                      <span className="chip bg-slate-200 text-slate-700">Expired — renew</span>
+                    )
+                  ) : j.kind === "PERMANENT" && j.status === "FILLED" ? (
+                    <span className="chip bg-emerald-50 text-emerald-700">Hired</span>
+                  ) : (
+                    <StatusBadge status={j.status} />
+                  )}
                   {j.status === "OPEN" && j._count.applications > 0 && (
-                    <span className="chip bg-brand-500 text-white">{j._count.applications} available driver(s)</span>
+                    <span className="chip bg-brand-500 text-white">
+                      {j._count.applications} {j.kind === "PERMANENT" ? "interested" : "available driver(s)"}
+                    </span>
                   )}
                   {j.booking && j.status !== "CANCELLED" && <span className="chip bg-navy-50 text-navy-800">{j.booking.driver.fullName}</span>}
                 </div>

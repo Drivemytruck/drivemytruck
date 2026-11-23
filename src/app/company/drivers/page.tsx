@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "Find drivers" };
 export default async function FindDriversPage({
   searchParams,
 }: {
-  searchParams: Promise<{ class?: string; date?: string; radius?: string; verified?: string }>;
+  searchParams: Promise<{ class?: string; date?: string; radius?: string; verified?: string; perm?: string }>;
 }) {
   const { company } = await requireCompany();
   const sp = await searchParams;
@@ -24,6 +24,7 @@ export default async function FindDriversPage({
   const date = sp.date && /^\d{4}-\d{2}-\d{2}$/.test(sp.date) ? sp.date : "";
   const radius = Math.min(Math.max(Number(sp.radius) || 30, 5), 300);
   const verifiedOnly = sp.verified === "1";
+  const permOnly = sp.perm === "1";
 
   const covering = jobClass ? ["C+E", "C", "C1"].filter((c) => drivableClasses([c]).includes(jobClass)) : null;
   const drivers = await db.driverProfile.findMany({
@@ -31,6 +32,7 @@ export default async function FindDriversPage({
       user: { suspended: false },
       licenceClasses: covering ? { hasSome: covering } : { isEmpty: false },
       ...(verifiedOnly ? { verificationStatus: "VERIFIED" } : {}),
+      ...(permOnly ? { openToPermanent: true, permanentUntil: { gt: new Date() } } : {}),
       ...(date
         ? { availability: { some: { date: new Date(`${date}T00:00:00Z`) } } }
         : {}),
@@ -58,7 +60,7 @@ export default async function FindDriversPage({
         <h1 className="h1">Find drivers</h1>
         <p className="muted">Drivers near {company.town ?? company.postcode ?? "you"}. Open a profile to invite them to one of your jobs.</p>
       </div>
-      <form className="card grid grid-cols-2 gap-3 p-4 sm:grid-cols-5 sm:items-end">
+      <form className="card grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:items-end">
         <label>
           <span className="label">Class</span>
           <select name="class" defaultValue={jobClass} className="input">
@@ -81,6 +83,10 @@ export default async function FindDriversPage({
         <label className="flex items-center gap-2 pb-3 text-sm">
           <input type="checkbox" name="verified" value="1" defaultChecked={verifiedOnly} className="h-5 w-5 accent-brand-500" />
           Verified only
+        </label>
+        <label className="flex items-center gap-2 pb-3 text-sm">
+          <input type="checkbox" name="perm" value="1" defaultChecked={permOnly} className="h-5 w-5 accent-brand-500" />
+          Open to permanent
         </label>
         <button className="btn-navy col-span-2 sm:col-span-1">Search</button>
       </form>

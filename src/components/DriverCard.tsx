@@ -13,8 +13,11 @@ export type DriverCardData = {
   licenceClasses: string[];
   skills: string[];
   experienceYears: number | null;
-  rateType: "SHIFT" | "HOURLY";
+  rateType: "SHIFT" | "HOURLY" | "ANNUAL";
   rateAmount: number | null;
+  openToPermanent?: boolean;
+  permanentUntil?: Date | null;
+  permSchedule?: string | null;
   verificationStatus: string;
 };
 
@@ -71,8 +74,11 @@ export function DriverCard({
           </div>
         )}
       </Link>
-      {(driver.skills.length > 0 || driver.experienceYears != null || availableToday) && (
+      {(driver.skills.length > 0 || driver.experienceYears != null || availableToday || driver.openToPermanent) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
+          {driver.openToPermanent && driver.permanentUntil && driver.permanentUntil > new Date() && (
+            <span className="chip bg-sky-50 text-sky-800">🤝 Open to permanent{driver.permSchedule ? ` · ${driver.permSchedule}` : ""}</span>
+          )}
           {availableToday && <span className="chip bg-emerald-50 text-emerald-700">● Available today</span>}
           {driver.experienceYears != null && <span className="chip bg-slate-100 text-slate-700">{driver.experienceYears} yrs exp.</span>}
           {driver.skills.slice(0, 6).map((s) => (

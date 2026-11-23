@@ -10,7 +10,8 @@ import { JobCard } from "@/components/JobCard";
 import { Empty } from "@/components/ui";
 import { JobsMapLoader } from "@/components/JobsMapLoader";
 import { todayDate, windowLabel } from "@/lib/availability";
-import { money, relativeDay, timeOnly } from "@/lib/format";
+import { payShort, relativeDay, timeOnly } from "@/lib/format";
+import { liveJobsWhere } from "@/lib/jobs";
 import { toggleAvailableToday } from "./actions";
 
 export const metadata: Metadata = { title: "Jobs near you" };
@@ -22,12 +23,13 @@ const WHEN = [
   { v: "week", l: "This week" },
 ];
 
-export default async function DriverHome({ searchParams }: { searchParams: Promise<{ when?: string; class?: string; any?: string; view?: string }> }) {
+export default async function DriverHome({ searchParams }: { searchParams: Promise<{ when?: string; class?: string; any?: string; view?: string; type?: string }> }) {
   const { driver } = await requireDriver();
   const sp = await searchParams;
   const when = WHEN.some((w) => w.v === sp.when) ? sp.when! : "all";
   const showAnyDistance = sp.any === "1";
   const view = sp.view === "map" ? "map" : "list";
+  const type = sp.type === "shift" || sp.type === "perm" ? sp.type : "all";
 
   const allowed = drivableClasses(driver.licenceClasses);
   const classFilter = sp.class && allowed.includes(sp.class) ? [sp.class] : allowed;
@@ -44,7 +46,14 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
 
   const jobs = allowed.length
     ? await db.job.findMany({
-        where: { status: "OPEN", startAt: range, licenceClass: { in: classFilter } },
+        where: {
+          AND: [
+            liveJobsWhere(now),
+            { licenceClass: { in: classFilter } },
+            // Date filters only make sense for shifts; permanent roles show under "All" / "Permanent".
+            type === "perm" ? { kind: "PERMANENT" } : type === "shift" || when !== "all" ? { kind: "SHIFT", startAt: range } : {},
+          ],
+        },
         include: {
           company: { select: { companyName: true, verificationStatus: true, userId: true } },
           applications: { where: { driverId: driver.id }, select: { status: true } },
@@ -59,6 +68,11 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
   const withDistance = allWithDistance
     .filter(({ distance }) => showAnyDistance || distance == null || distance <= driver.travelRadiusMiles)
     .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999) || a.job.startAt.getTime() - b.job.startAt.getTime());
+  const TYPES = [
+    { v: "all", l: "All jobs" },
+    { v: "shift", l: "🕒 Shifts" },
+    { v: "perm", l: "🤝 Permanent" },
+  ];
 
   const firstName = driver.fullName.split(" ")[0];
   const today = await db.availability.findUnique({ where: { driverId_date: { driverId: driver.id, date: todayDate() } } });
@@ -66,8 +80,8 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
   const profileIncomplete = !driver.licenceClasses.length;
   const qs = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { when, class: sp.class, any: sp.any, view: view === "map" ? "map" : undefined, ...patch };
-    for (const [k, v] of Object.entries(merged)) if (v && !(k === "when" && v === "all")) p.set(k, v);
+    const merged = { type: type === "all" ? undefined : type, when, class: sp.class, any: sp.any, view: view === "map" ? "map" : undefined, ...patch };
+    for (const [k, v] of Object.entries(merged)) if (v && !((k === "when" || k === "type") && v === "all")) p.set(k, v);
     const s = p.toString();
     return s ? `/driver?${s}` : "/driver";
   };
@@ -104,6 +118,18 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
       </form>
 
       <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-1 rounded-xl border border-slate-300 bg-white p-1 text-sm font-semibold">
+          {TYPES.map((t) => (
+            <Link
+              key={t.v}
+              href={qs({ type: t.v, when: t.v === "perm" ? "all" : when })}
+              className={`rounded-lg py-2 text-center ${type === t.v ? "bg-brand-500 text-white" : "text-slate-600"}`}
+            >
+              {t.l}
+            </Link>
+          ))}
+        </div>
+        {type !== "perm" && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {WHEN.map((w) => (
             <Link
@@ -115,6 +141,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
             </Link>
           ))}
         </div>
+        )}
         {allowed.length > 1 && (
           <div className="flex gap-2 overflow-x-auto pb-1">
             <Link
@@ -156,10 +183,10 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
                 id: job.id,
                 lat: job.lat!,
                 lng: job.lng!,
-                price: money(job.payAmount) + (job.payType === "HOURLY" ? "/h" : ""),
+                price: payShort(job.payAmount, job.payType) + (job.kind === "PERMANENT" ? " · Perm" : ""),
                 title: `${job.licenceClass === "C+E" ? "Class 1" : job.licenceClass === "C" ? "Class 2" : "7.5t"} driver`,
                 company: job.company.companyName,
-                when: `${relativeDay(job.startAt)}, ${timeOnly(job.startAt)}`,
+                when: job.kind === "PERMANENT" ? `Permanent · ${job.schedule ?? ""}` : `${relativeDay(job.startAt)}, ${timeOnly(job.startAt)}`,
                 place: job.town ?? job.postcode,
                 distance,
                 badge: job.applications[0]?.status,

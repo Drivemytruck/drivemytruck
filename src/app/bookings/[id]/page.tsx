@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
 import { avatarUrl } from "@/lib/avatar";
-import { dateTime, money } from "@/lib/format";
+import { dateTime, money, payUnit } from "@/lib/format";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { StarInput } from "@/components/StarInput";
 import { Avatar, Stars, StatusBadge } from "@/components/ui";
@@ -70,7 +70,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           </div>
           <div className="text-right">
             <p className="text-2xl font-extrabold text-brand-500">{money(booking.job.payAmount)}</p>
-            <p className="text-xs text-slate-500">{booking.job.payType === "HOURLY" ? "per hour" : "per shift"}</p>
+            <p className="text-xs text-slate-500">{payUnit(booking.job.payType)}</p>
           </div>
         </div>
         {booking.job.description && <p className="mt-4 whitespace-pre-line text-sm text-slate-700">{booking.job.description}</p>}

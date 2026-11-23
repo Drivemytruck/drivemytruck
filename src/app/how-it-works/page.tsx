@@ -5,6 +5,10 @@ export const metadata: Metadata = { title: "How it works" };
 
 const faqs = [
   {
+    q: "Is it only for one-off shifts?",
+    a: "No. Companies can post one-off shifts or permanent / regular roles, and drivers can mark themselves as open to permanent work. Permanent adverts stay live for 14 days and can be renewed.",
+  },
+  {
     q: "How much does it cost?",
     a: "Drivers never pay to find work. Companies use Drive My Truck free during our launch period; after that we'll charge companies a small booking fee, announced well in advance.",
   },

@@ -31,7 +31,7 @@ export function windowLabel(a: Window) {
   return "any time";
 }
 
-export function dayRateLabel(a: { rateAmount: number | null; rateType: "SHIFT" | "HOURLY" | null }) {
+export function dayRateLabel(a: { rateAmount: number | null; rateType: "SHIFT" | "HOURLY" | "ANNUAL" | null }) {
   if (a.rateAmount == null) return null;
   return `${money(a.rateAmount)}${a.rateType === "HOURLY" ? "/h" : "/shift"}`;
 }

@@ -26,6 +26,12 @@ enum VerificationStatus {
 enum PayType {
   SHIFT
   HOURLY
+  ANNUAL
+}
+
+enum JobKind {
+  SHIFT // one-off / ad-hoc shift
+  PERMANENT // permanent or regular role
 }
 
 enum AvailabilitySlot {
@@ -144,6 +150,12 @@ model DriverProfile {
   rateAmount         Int? // pence
   bio                String?
   availableToday     Boolean            @default(false)
+  openToPermanent    Boolean            @default(false)
+  permanentUntil     DateTime? // "looking for permanent work" expires after 30 days
+  permEmployment     String[] // PAYE / Self-employed / Ltd / Umbrella
+  permSchedule       String?
+  permNote           String?
+  permReminderSentAt DateTime?
   verificationStatus VerificationStatus @default(PENDING)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
@@ -208,25 +220,33 @@ model CompanyProfile {
 }
 
 model Job {
-  id            String         @id @default(cuid())
-  companyId     String
-  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  licenceClass  String
-  postcode      String
-  town          String?
-  lat           Float?
-  lng           Float?
-  startAt       DateTime
-  durationHours Float
-  payType       PayType        @default(SHIFT)
-  payAmount     Int // pence
-  jobType       String?
-  vehicleType   String?
-  description   String?
-  requirements  String?
-  status        JobStatus      @default(OPEN)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id                   String         @id @default(cuid())
+  companyId            String
+  company              CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  licenceClass         String
+  postcode             String
+  town                 String?
+  lat                  Float?
+  lng                  Float?
+  kind                 JobKind        @default(SHIFT)
+  startAt              DateTime // shift start, or role start date for permanent jobs
+  startAsap            Boolean        @default(false)
+  durationHours        Float          @default(0) // shifts only
+  schedule             String? // permanent: e.g. "Mon–Fri nights", "4 on 4 off"
+  employmentType       String? // permanent: PAYE / Self-employed / Ltd / Umbrella
+  benefits             String?
+  expiresAt            DateTime? // permanent adverts are live for 14 days, then renewed
+  renewCount           Int            @default(0)
+  expiryReminderSentAt DateTime?
+  payType              PayType        @default(SHIFT)
+  payAmount            Int // pence
+  jobType              String?
+  vehicleType          String?
+  description          String?
+  requirements         String?
+  status               JobStatus      @default(OPEN)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   applications Application[]
   booking      Booking?

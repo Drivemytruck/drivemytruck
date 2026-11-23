@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
-import { dateTime, money } from "@/lib/format";
+import { dateTime, money, payUnit } from "@/lib/format";
 import { Info, RowLink, Section } from "@/components/admin";
 import { StatusBadge } from "@/components/ui";
 
@@ -40,15 +40,27 @@ export default async function AdminJob({ params }: { params: Promise<{ id: strin
           </div>
           <div className="text-right">
             <p className="text-2xl font-extrabold text-brand-500">{money(job.payAmount)}</p>
-            <p className="text-xs text-slate-500">{job.payType === "HOURLY" ? "per hour" : "per shift"}</p>
+            <p className="text-xs text-slate-500">{payUnit(job.payType)}</p>
           </div>
         </div>
       </div>
       <Section title="Details">
         <Info
           rows={[
-            ["Start", dateTime(job.startAt)],
-            ["Duration", `${job.durationHours} h`],
+            ["Type", job.kind === "PERMANENT" ? "🤝 Permanent" : "🕒 Shift"],
+            ...(job.kind === "PERMANENT"
+              ? ([
+                  ["Start", job.startAsap ? "ASAP" : dateTime(job.startAt)],
+                  ["Pattern", job.schedule],
+                  ["Employment", job.employmentType],
+                  ["Benefits", job.benefits],
+                  ["Expires", job.expiresAt ? dateTime(job.expiresAt) : null],
+                  ["Renewed", `${job.renewCount}×`],
+                ] as [string, React.ReactNode][])
+              : ([
+                  ["Start", dateTime(job.startAt)],
+                  ["Duration", `${job.durationHours} h`],
+                ] as [string, React.ReactNode][])),
             ["Location", [job.town, job.postcode].filter(Boolean).join(", ")],
             ["Job type", job.jobType],
             ["Vehicle", job.vehicleType],

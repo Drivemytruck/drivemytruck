@@ -9,6 +9,7 @@ export async function bookDriver(jobId: string, driverId: string) {
     const job = await tx.job.findUnique({ where: { id: jobId } });
     if (!job) throw new BookingError("Job not found.");
     if (job.status !== "OPEN") throw new BookingError("This job is no longer open.");
+    if (job.kind === "PERMANENT") throw new BookingError("Permanent roles are filled with “Mark as hired”.");
     if (job.startAt.getTime() < Date.now() - 6 * 3600000) throw new BookingError("This job has already started.");
 
     const app = await tx.application.findUnique({ where: { jobId_driverId: { jobId, driverId } } });

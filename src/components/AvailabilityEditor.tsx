@@ -13,7 +13,7 @@ export type DayRow = {
   start: string;
   end: string;
   rate: string;
-  rateType: "SHIFT" | "HOURLY";
+  rateType: "SHIFT" | "HOURLY" | "ANNUAL";
 };
 
 function Save() {

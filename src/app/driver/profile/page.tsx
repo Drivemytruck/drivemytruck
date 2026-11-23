@@ -4,7 +4,10 @@ import { requireDriver } from "@/lib/session";
 import { LICENCE_CLASSES, SKILLS } from "@/lib/constants";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { CheckboxGroup, Field, StatusBadge } from "@/components/ui";
-import { updateDriverProfile } from "../actions";
+import { savePermanentPrefs, updateDriverProfile } from "../actions";
+import { EMPLOYMENT_TYPES } from "@/lib/constants";
+import { isSeekingPermanent } from "@/lib/jobs";
+import { dateOnly } from "@/lib/format";
 import { PhotoUpload } from "@/components/PhotoUpload";
 import { avatarUrl } from "@/lib/avatar";
 
@@ -52,6 +55,36 @@ export default async function DriverProfilePage({ searchParams }: { searchParams
           <span aria-hidden>›</span>
         </Link>
       </div>
+
+      <section className="card p-5 sm:p-6">
+        <h2 className="h2">🤝 Looking for permanent work?</h2>
+        <p className="muted mt-1">
+          Turn this on and companies hiring permanent drivers can find and invite you. It stays on for 30 days — we&apos;ll email you to check
+          if you&apos;re still looking.
+        </p>
+        {isSeekingPermanent(driver) && driver.permanentUntil && (
+          <p className="mt-2 text-sm font-medium text-emerald-700">✓ Visible to companies until {dateOnly(driver.permanentUntil)}</p>
+        )}
+        <ActionForm action={savePermanentPrefs} className="mt-4 space-y-4">
+          <label className="flex items-center gap-3 font-semibold text-navy-900">
+            <input type="checkbox" name="openToPermanent" defaultChecked={isSeekingPermanent(driver)} className="h-5 w-5 accent-brand-500" />
+            Yes, I&apos;m open to a permanent / regular job
+          </label>
+          <div>
+            <span className="label">I&apos;d work as</span>
+            <CheckboxGroup name="permEmployment" options={EMPLOYMENT_TYPES} selected={driver.permEmployment} />
+          </div>
+          <Field label="Preferred shift pattern" hint="e.g. Days only, Mon–Fri nights, 4 on 4 off">
+            <input className="input" name="permSchedule" maxLength={120} defaultValue={driver.permSchedule ?? ""} />
+          </Field>
+          <Field label="Anything else? (optional)" hint="e.g. looking for £18/h+, home every night, no tramping">
+            <textarea className="input min-h-16" name="permNote" maxLength={500} defaultValue={driver.permNote ?? ""} />
+          </Field>
+          <SubmitButton className="btn-navy w-full" pendingText="Saving…">
+            Save
+          </SubmitButton>
+        </ActionForm>
+      </section>
 
       <div className="card p-5 sm:p-6">
         <ActionForm action={updateDriverProfile} className="space-y-5">

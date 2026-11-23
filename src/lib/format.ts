@@ -3,11 +3,23 @@ const TZ = "Europe/London";
 export function money(pence: number | null | undefined) {
   if (pence == null) return "—";
   const pounds = pence / 100;
-  return `£${pounds % 1 === 0 ? pounds.toFixed(0) : pounds.toFixed(2)}`;
+  return `£${pounds.toLocaleString("en-GB", { minimumFractionDigits: pounds % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
 }
 
-export function payLabel(pence: number | null | undefined, type: "SHIFT" | "HOURLY") {
-  return `${money(pence)} ${type === "HOURLY" ? "per hour" : "per shift"}`;
+type PayKind = "SHIFT" | "HOURLY" | "ANNUAL";
+
+export function payUnit(type: PayKind) {
+  return type === "HOURLY" ? "per hour" : type === "ANNUAL" ? "per year" : "per shift";
+}
+
+/** Compact pay for pins and chips: £250, £17.50/h, £38k/yr */
+export function payShort(pence: number, type: PayKind) {
+  if (type === "ANNUAL") return `£${Math.round(pence / 100000)}k/yr`;
+  return money(pence) + (type === "HOURLY" ? "/h" : "");
+}
+
+export function payLabel(pence: number | null | undefined, type: PayKind) {
+  return `${money(pence)} ${payUnit(type)}`;
 }
 
 export function dateTime(d: Date) {

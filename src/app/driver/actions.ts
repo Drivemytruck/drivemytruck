@@ -6,10 +6,11 @@ import type { DocumentType, PayType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
 import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
-import { DOCUMENT_TYPES, LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
+import { DOCUMENT_TYPES, EMPLOYMENT_TYPES, LICENCE_CLASSES, PERM_SEEKING_DAYS, canDriveClass } from "@/lib/constants";
 import { bookDriver, BookingError } from "@/lib/bookings";
 import { TIME_RE, todayDate } from "@/lib/availability";
 import { contactDetailsError } from "@/lib/contact-guard";
+import { isLive } from "@/lib/jobs";
 import type { ActionState } from "@/components/forms";
 
 const profileSchema = z.object({
@@ -150,12 +151,12 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
   const contactErr = contactDetailsError(message);
   if (contactErr) return { error: contactErr };
   const job = await db.job.findUnique({ where: { id: jobId } });
-  if (!job || job.status !== "OPEN") return { error: "This job is no longer open." };
+  if (!job || !isLive(job)) return { error: "This job is no longer open." };
   if (!driver.licenceClasses.length) return { error: "Add your licence class to your profile first." };
   if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: "Your licence class doesn't cover this job." };
 
   const existing = await db.application.findUnique({ where: { jobId_driverId: { jobId, driverId: driver.id } } });
-  if (existing?.status === "INVITED") {
+  if (existing?.status === "INVITED" && job.kind === "SHIFT") {
     // Accepting an invite books the driver straight away.
     try {
       await bookDriver(jobId, driver.id);
@@ -171,7 +172,7 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
     update: { status: "APPLIED", message },
   });
   revalidatePath(`/jobs/${jobId}`);
-  return { ok: "Sent! The company will see you're available." };
+  return { ok: job.kind === "PERMANENT" ? "Sent! The company can now see your profile and contact details." : "Sent! The company will see you're available." };
 }
 
 export async function withdrawApplication(fd: FormData) {
@@ -182,4 +183,28 @@ export async function withdrawApplication(fd: FormData) {
     data: { status: "WITHDRAWN" },
   });
   revalidatePath(`/jobs/${jobId}`);
+}
+
+/** "Looking for permanent work" — visible to companies for 30 days, then the driver confirms. */
+export async function savePermanentPrefs(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const on = fd.get("openToPermanent") === "on";
+  const employment = fd.getAll("permEmployment").map(String).filter((t) => (EMPLOYMENT_TYPES as readonly string[]).includes(t));
+  const schedule = String(fd.get("permSchedule") ?? "").trim().slice(0, 120) || null;
+  const note = String(fd.get("permNote") ?? "").trim().slice(0, 500) || null;
+  const contactErr = contactDetailsError(schedule, note);
+  if (contactErr) return { error: contactErr };
+  await db.driverProfile.update({
+    where: { id: driver.id },
+    data: {
+      openToPermanent: on,
+      permanentUntil: on ? new Date(Date.now() + PERM_SEEKING_DAYS * 86400000) : null,
+      permReminderSentAt: null,
+      permEmployment: employment,
+      permSchedule: schedule,
+      permNote: note,
+    },
+  });
+  revalidatePath("/driver", "layout");
+  return { ok: on ? `Saved — companies can see you're open to permanent work for the next ${PERM_SEEKING_DAYS} days.` : "Saved — you're not shown as looking for permanent work." };
 }

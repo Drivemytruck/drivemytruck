@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
-import { dateTime, money } from "@/lib/format";
+import { dateTime, payShort } from "@/lib/format";
 import { todayDate } from "@/lib/availability";
 import { AdminMapLoader } from "@/components/AdminMapLoader";
 
@@ -32,7 +32,7 @@ export default async function AdminMapPage() {
             id: j.id,
             lat: j.lat!,
             lng: j.lng!,
-            price: money(j.payAmount) + (j.payType === "HOURLY" ? "/h" : ""),
+            price: payShort(j.payAmount, j.payType) + (j.kind === "PERMANENT" ? " · Perm" : ""),
             status: j.status,
             title: `${licenceLabel(j.licenceClass)} driver`,
             when: dateTime(j.startAt),

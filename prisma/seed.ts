@@ -163,6 +163,15 @@ async function main() {
   await db.application.create({ data: { jobId: soonJob.id, driverId: sophie.driver!.id, status: "ACCEPTED" } });
   await db.booking.create({ data: { jobId: soonJob.id, driverId: sophie.driver!.id, companyId: midlands.company!.id } });
 
+  // A permanent role (live) and one expiring tomorrow; Sophie is open to permanent work.
+  await db.job.create({
+    data: { companyId: midlands.company!.id, ...places.walsall, kind: "PERMANENT", licenceClass: "C+E", startAt: new Date(), startAsap: true, payType: "HOURLY", payAmount: 1850, schedule: "Mon–Fri nights", employmentType: "PAYE (employed)", benefits: "Overtime after 45h, pension", jobType: "Trunking", expiresAt: new Date(Date.now() + 14 * 86400000) },
+  });
+  await db.job.create({
+    data: { companyId: rapid.company!.id, ...places.coventry, kind: "PERMANENT", licenceClass: "C", startAt: new Date(), startAsap: true, payType: "ANNUAL", payAmount: 3600000, schedule: "Days, 4 on 4 off", employmentType: "PAYE (employed)", expiresAt: new Date(Date.now() + 20 * 3600000) },
+  });
+  await db.driverProfile.update({ where: { id: sophie.driver!.id }, data: { openToPermanent: true, permanentUntil: new Date(Date.now() + 30 * 86400000), permEmployment: ["PAYE (employed)", "Ltd company"], permSchedule: "Days only" } });
+
   console.log("Seeded. Log in with e.g. alex@drivemytruck.test / midlands@drivemytruck.test / admin@drivemytruck.test — password: password123");
 }
 

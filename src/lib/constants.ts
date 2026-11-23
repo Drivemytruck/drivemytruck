@@ -109,3 +109,9 @@ export function canDriveClass(driverClasses: string[], jobClass: string) {
 export function drivableClasses(driverClasses: string[]) {
   return [...new Set(driverClasses.flatMap((c) => COVERS[c] ?? []))];
 }
+
+export const EMPLOYMENT_TYPES = ["PAYE (employed)", "Self-employed", "Ltd company", "Umbrella"] as const;
+/** Permanent job adverts stay live this long, then the company renews them. */
+export const PERM_LISTING_DAYS = 14;
+/** A driver's "looking for permanent work" status lasts this long before they confirm. */
+export const PERM_SEEKING_DAYS = 30;

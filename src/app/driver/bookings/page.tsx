@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
 import { licenceLabel } from "@/lib/constants";
-import { dateTime, money } from "@/lib/format";
+import { dateTime, money, payShort } from "@/lib/format";
 import { Empty, StatusBadge } from "@/components/ui";
 
 export const metadata: Metadata = { title: "My work" };
 
 export default async function DriverBookingsPage() {
   const { user, driver } = await requireDriver();
-  const [bookings, applications] = await Promise.all([
+  const [bookings, applications, hiredRoles] = await Promise.all([
     db.booking.findMany({
       where: { driverId: driver.id },
       include: { job: true, company: { select: { companyName: true } }, reviews: { where: { authorId: user.id }, select: { id: true } } },
@@ -20,6 +20,11 @@ export default async function DriverBookingsPage() {
       where: { driverId: driver.id, status: { in: ["APPLIED", "INVITED"] }, job: { status: "OPEN" } },
       include: { job: { include: { company: { select: { companyName: true } } } } },
       orderBy: { job: { startAt: "asc" } },
+    }),
+    db.application.findMany({
+      where: { driverId: driver.id, status: "ACCEPTED", job: { kind: "PERMANENT" } },
+      include: { job: { include: { company: { select: { companyName: true } } } } },
+      orderBy: { updatedAt: "desc" },
     }),
   ]);
   const upcoming = bookings.filter((b) => b.status === "CONFIRMED");
@@ -62,6 +67,21 @@ export default async function DriverBookingsPage() {
         </section>
       )}
 
+      {hiredRoles.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="h2">🎉 Permanent roles you got</h2>
+          {hiredRoles.map((a) => (
+            <Row
+              key={a.id}
+              href={`/jobs/${a.jobId}`}
+              title={`${licenceLabel(a.job.licenceClass)} · ${a.job.company.companyName}`}
+              sub={`${a.job.schedule ?? "Permanent"} · ${a.job.town ?? a.job.postcode}`}
+              right={payShort(a.job.payAmount, a.job.payType)}
+            />
+          ))}
+        </section>
+      )}
+
       <section className="space-y-2">
         <h2 className="h2">Upcoming bookings</h2>
         {upcoming.length ? (
@@ -92,8 +112,8 @@ export default async function DriverBookingsPage() {
               key={a.id}
               href={`/jobs/${a.jobId}`}
               title={`${licenceLabel(a.job.licenceClass)} · ${a.job.company.companyName}`}
-              sub={`${dateTime(a.job.startAt)} · ${a.job.town ?? a.job.postcode}`}
-              right={money(a.job.payAmount)}
+              sub={`${a.job.kind === "PERMANENT" ? `Permanent · ${a.job.schedule ?? ""}` : dateTime(a.job.startAt)} · ${a.job.town ?? a.job.postcode}`}
+              right={payShort(a.job.payAmount, a.job.payType)}
               badge="APPLIED"
             />
           ))}

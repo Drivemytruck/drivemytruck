@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
 import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
-import { LICENCE_CLASSES, canDriveClass } from "@/lib/constants";
+import { EMPLOYMENT_TYPES, LICENCE_CLASSES, PERM_LISTING_DAYS, canDriveClass } from "@/lib/constants";
 import { londonToDate } from "@/lib/format";
 import { bookDriver, BookingError } from "@/lib/bookings";
 import { contactDetailsError } from "@/lib/contact-guard";
@@ -39,47 +39,130 @@ export async function updateCompanyProfile(_: ActionState, fd: FormData): Promis
   return { ok: "Company profile saved." };
 }
 
-const jobSchema = z.object({
+const jobBase = {
   licenceClass: z.enum(LICENCE_CLASSES.map((c) => c.value) as [string, ...string[]], { errorMap: () => ({ message: "Choose a licence class" }) }),
-  postcode: z.string().trim().refine(isValidUkPostcode, "Please enter a valid UK postcode for the start location"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a start date"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Choose a start time"),
-  durationHours: z.coerce.number().min(1, "Duration must be at least 1 hour").max(24 * 14),
-  payType: z.enum(["SHIFT", "HOURLY"]),
-  pay: z.coerce.number().min(1, "Enter the pay rate").max(10000),
+  postcode: z.string().trim().refine(isValidUkPostcode, "Please enter a valid UK postcode"),
+  pay: z.coerce.number().min(1, "Enter the pay rate").max(200000),
   jobType: opt(z.string().trim().max(60)),
   vehicleType: opt(z.string().trim().max(60)),
   description: opt(z.string().trim().max(2000)),
   requirements: opt(z.string().trim().max(1000)),
+};
+
+const shiftSchema = z.object({
+  ...jobBase,
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a start date"),
+  time: z.string().regex(/^\d{2}:\d{2}$/, "Choose a start time"),
+  durationHours: z.coerce.number().min(1, "Duration must be at least 1 hour").max(24 * 14),
+  payType: z.enum(["SHIFT", "HOURLY"]),
+});
+
+const permSchema = z.object({
+  ...jobBase,
+  startAsap: z.literal("on").optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  payType: z.enum(["HOURLY", "ANNUAL"]),
+  schedule: z.string().trim().min(2, "Describe the shift pattern (e.g. Mon–Fri nights)").max(120),
+  employmentType: z.enum(EMPLOYMENT_TYPES),
+  benefits: opt(z.string().trim().max(1000)),
 });
 
 export async function createJob(_: ActionState, fd: FormData): Promise<ActionState> {
   const { company } = await requireCompany();
-  const parsed = jobSchema.safeParse(Object.fromEntries(fd));
+  const raw = Object.fromEntries(fd);
+  const kind = raw.kind === "PERMANENT" ? "PERMANENT" : "SHIFT";
+
+  if (kind === "SHIFT") {
+    const parsed = shiftSchema.safeParse(raw);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+    const d = parsed.data;
+    const contactErr = contactDetailsError(d.description, d.requirements);
+    if (contactErr) return { error: contactErr };
+    const startAt = londonToDate(d.date, d.time);
+    if (startAt.getTime() < Date.now() - 3600000) return { error: "The start time is in the past." };
+    const geo = await geocodePostcode(d.postcode);
+    const job = await db.job.create({
+      data: {
+        companyId: company.id,
+        kind,
+        licenceClass: d.licenceClass,
+        ...geo,
+        startAt,
+        durationHours: d.durationHours,
+        payType: d.payType,
+        payAmount: Math.round(d.pay * 100),
+        jobType: d.jobType,
+        vehicleType: d.vehicleType,
+        description: d.description,
+        requirements: d.requirements,
+      },
+    });
+    revalidatePath("/company");
+    redirect(`/company/jobs/${job.id}?posted=1`);
+  }
+
+  const parsed = permSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const d = parsed.data;
-  const contactErr = contactDetailsError(d.description, d.requirements);
+  const contactErr = contactDetailsError(d.description, d.requirements, d.benefits, d.schedule);
   if (contactErr) return { error: contactErr };
-  const startAt = londonToDate(d.date, d.time);
-  if (startAt.getTime() < Date.now() - 3600000) return { error: "The start time is in the past." };
+  const asap = d.startAsap === "on" || !d.date;
+  const startAt = asap ? new Date() : londonToDate(d.date!, "08:00");
   const geo = await geocodePostcode(d.postcode);
   const job = await db.job.create({
     data: {
       companyId: company.id,
+      kind,
       licenceClass: d.licenceClass,
       ...geo,
       startAt,
-      durationHours: d.durationHours,
+      startAsap: asap,
       payType: d.payType,
       payAmount: Math.round(d.pay * 100),
+      schedule: d.schedule,
+      employmentType: d.employmentType,
+      benefits: d.benefits,
       jobType: d.jobType,
       vehicleType: d.vehicleType,
       description: d.description,
       requirements: d.requirements,
+      expiresAt: new Date(Date.now() + PERM_LISTING_DAYS * 86400000),
     },
   });
   revalidatePath("/company");
   redirect(`/company/jobs/${job.id}?posted=1`);
+}
+
+/** Extend a permanent advert by another listing period. Free during launch — a payment step can be added here later. */
+export async function renewJob(fd: FormData) {
+  const { job } = await ownJob(String(fd.get("jobId")));
+  if (job.kind !== "PERMANENT" || job.status !== "OPEN") return;
+  const now = Date.now();
+  const base = Math.max(now, job.expiresAt?.getTime() ?? now);
+  if (base - now > 3 * 86400000) return; // only within the last 3 days, or once expired
+  await db.job.update({
+    where: { id: job.id },
+    data: { expiresAt: new Date(base + PERM_LISTING_DAYS * 86400000), renewCount: { increment: 1 }, expiryReminderSentAt: null },
+  });
+  revalidatePath(`/company/jobs/${job.id}`);
+  revalidatePath("/company");
+}
+
+/** Permanent roles: the company marks the driver they hired; the advert closes. */
+export async function markHired(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { job } = await ownJob(String(fd.get("jobId")));
+  const driverId = String(fd.get("driverId"));
+  if (job.kind !== "PERMANENT" || job.status !== "OPEN") return { error: "This advert is no longer open." };
+  const app = await db.application.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId } } });
+  if (!app || !["APPLIED", "INVITED"].includes(app.status)) return { error: "This driver hasn't responded to the advert." };
+  await db.$transaction([
+    db.job.update({ where: { id: job.id }, data: { status: "FILLED" } }),
+    db.application.update({ where: { id: app.id }, data: { status: "ACCEPTED" } }),
+    db.application.updateMany({ where: { jobId: job.id, id: { not: app.id }, status: { in: ["APPLIED", "INVITED"] } }, data: { status: "DECLINED" } }),
+    db.driverProfile.update({ where: { id: driverId }, data: { openToPermanent: false, permanentUntil: null } }),
+  ]);
+  revalidatePath(`/company/jobs/${job.id}`);
+  return { ok: "Marked as hired 🎉 The advert has been closed." };
 }
 
 async function ownJob(jobId: string) {
