@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { requireUser, createSession, destroySession } from "@/lib/session";
+import { getTx } from "@/lib/i18n";
+
+const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
 import type { ActionState } from "@/components/forms";
 
 const MAX_BYTES = 600 * 1024;
@@ -21,11 +24,11 @@ function sniff(b: Uint8Array): string | null {
 export async function uploadAvatar(fd: FormData): Promise<{ error?: string; ok?: boolean }> {
   const user = await requireUser();
   const file = fd.get("photo");
-  if (!(file instanceof File) || file.size === 0) return { error: "Please choose a photo." };
-  if (file.size > MAX_BYTES) return { error: "That photo is too large. Please try another one." };
+  if (!(file instanceof File) || file.size === 0) return { error: await T("Please choose a photo.") };
+  if (file.size > MAX_BYTES) return { error: await T("That photo is too large. Please try another one.") };
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mimeType = sniff(bytes);
-  if (!mimeType) return { error: "Please upload a JPG, PNG or WebP image." };
+  if (!mimeType) return { error: await T("Please upload a JPG, PNG or WebP image.") };
 
   await db.$transaction([
     db.avatar.upsert({
@@ -53,15 +56,15 @@ export async function changePassword(_: ActionState, fd: FormData): Promise<Acti
   const user = await requireUser();
   const current = String(fd.get("current") ?? "");
   const password = String(fd.get("password") ?? "");
-  if (password.length < 8) return { error: "New password must be at least 8 characters." };
-  if (!(await bcrypt.compare(current, user.passwordHash))) return { error: "Your current password is wrong." };
+  if (password.length < 8) return { error: await T("New password must be at least 8 characters.") };
+  if (!(await bcrypt.compare(current, user.passwordHash))) return { error: await T("Your current password is wrong.") };
   const updated = await db.user.update({
     where: { id: user.id },
     data: { passwordHash: await bcrypt.hash(password, 12), sessionVersion: { increment: 1 } },
   });
   // Keep this device signed in; all other sessions are now invalid.
   await createSession(updated.id, updated.role, updated.sessionVersion);
-  return { ok: "Password changed. You've been signed out on other devices." };
+  return { ok: await T("Password changed. You've been signed out on other devices.") };
 }
 
 export async function setMarketingConsent(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -72,14 +75,14 @@ export async function setMarketingConsent(_: ActionState, fd: FormData): Promise
     data: { marketingConsent: on, marketingConsentAt: on ? (user.marketingConsent ? user.marketingConsentAt : new Date()) : null },
   });
   revalidatePath("/account");
-  return { ok: on ? "Thanks — we'll send you the occasional offer." : "Done — you won't receive offers from us." };
+  return { ok: await T(on ? "Thanks — we'll send you the occasional offer." : "Done — you won't receive offers from us.") };
 }
 
 export async function deleteAccount(_: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
-  if (user.role === "ADMIN") return { error: "Admin accounts can't be deleted here." };
-  if (String(fd.get("confirm") ?? "").trim() !== "DELETE") return { error: "Please type DELETE to confirm." };
-  if (!(await bcrypt.compare(String(fd.get("password") ?? ""), user.passwordHash))) return { error: "Wrong password." };
+  if (user.role === "ADMIN") return { error: await T("Admin accounts can't be deleted here.") };
+  if (String(fd.get("confirm") ?? "").trim() !== "DELETE") return { error: await T("Please type DELETE to confirm.") };
+  if (!(await bcrypt.compare(String(fd.get("password") ?? ""), user.passwordHash))) return { error: await T("Wrong password.") };
   // Cascades remove the profile, documents, availability, applications, bookings, reviews and photo.
   await db.$transaction([
     db.failedLogin.deleteMany({ where: { email: user.email } }),

@@ -235,3 +235,9 @@ const dict: Record<Lang, Dict> = { en, pl };
 export async function tr(en: string, pl: string) {
   return (await getLang()) === "pl" ? pl : en;
 }
+
+export async function getTx() {
+  const lang = await getLang();
+  const { makeTx } = await import("./tx");
+  return { lang, tx: makeTx(lang) };
+}

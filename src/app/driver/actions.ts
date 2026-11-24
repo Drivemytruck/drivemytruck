@@ -12,6 +12,9 @@ import { TIME_RE, todayDate } from "@/lib/availability";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { isLive } from "@/lib/jobs";
 import { encrypt } from "@/lib/crypto";
+import { getTx } from "@/lib/i18n";
+
+const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
 import type { ActionState } from "@/components/forms";
 
 const profileSchema = z.object({
@@ -30,13 +33,13 @@ export async function updateDriverProfile(_: ActionState, fd: FormData): Promise
   const raw = Object.fromEntries(fd);
   for (const k of ["phone", "experienceYears", "rate", "bio"]) if (raw[k] === "") delete raw[k];
   const parsed = profileSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please check the form.") };
   const licenceClasses = fd.getAll("licenceClasses").map(String).filter((c) => LICENCE_CLASSES.some((l) => l.value === c));
-  if (!licenceClasses.length) return { error: "Please choose at least one licence class." };
+  if (!licenceClasses.length) return { error: await T("Please choose at least one licence class.") };
   const skills = fd.getAll("skills").map(String).slice(0, 30);
   const d = parsed.data;
   const contactErr = contactDetailsError(d.bio);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   const geo = d.postcode.toUpperCase().replace(/\s/g, "") === (driver.postcode ?? "").replace(/\s/g, "")
     ? { postcode: driver.postcode!, town: driver.town, lat: driver.lat, lng: driver.lng }
     : await geocodePostcode(d.postcode);
@@ -57,7 +60,7 @@ export async function updateDriverProfile(_: ActionState, fd: FormData): Promise
     },
   });
   revalidatePath("/driver", "layout");
-  return { ok: "Profile saved." };
+  return { ok: await T("Profile saved.") };
 }
 
 export async function toggleAvailableToday() {
@@ -83,12 +86,12 @@ export async function saveDocument(_: ActionState, fd: FormData): Promise<Action
   if (raw.checkCode === "") delete raw.checkCode;
   if (raw.expiresAt === "") delete raw.expiresAt;
   const parsed = docSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please check the form.") };
   const { type, reference, checkCode, expiresAt } = parsed.data;
   const meta = DOCUMENT_TYPES.find((d) => d.type === type);
-  if (meta?.needsCheckCode && !checkCode) return { error: "Please add your DVLA check code so we can verify your licence." };
+  if (meta?.needsCheckCode && !checkCode) return { error: await T("Please add your DVLA check code so we can verify your licence.") };
   const expiry = expiresAt ? new Date(`${expiresAt}T00:00:00Z`) : null;
-  if (expiry && expiry.getTime() < Date.now()) return { error: "That document has already expired." };
+  if (expiry && expiry.getTime() < Date.now()) return { error: await T("That document has already expired.") };
 
   await db.driverDocument.upsert({
     where: { driverId_type: { driverId: driver.id, type: type as DocumentType } },
@@ -101,7 +104,7 @@ export async function saveDocument(_: ActionState, fd: FormData): Promise<Action
     await db.driverProfile.update({ where: { id: driver.id }, data: { verificationStatus: "PENDING" } });
   }
   revalidatePath("/driver/documents");
-  return { ok: `${meta?.label ?? "Document"} saved. We'll check it shortly.` };
+  return { ok: await T("{doc} saved. We'll check it shortly.", { doc: await T(meta?.label ?? "Document") }) };
 }
 
 export async function saveAvailability(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -112,19 +115,19 @@ export async function saveAvailability(_: ActionState, fd: FormData): Promise<Ac
 
   // Travel radius + base postcode, shown at the top of the availability page.
   const radius = Number(fd.get("radius"));
-  if (!Number.isInteger(radius) || radius < 1 || radius > 500) return { error: "Travel distance must be between 1 and 500 miles." };
+  if (!Number.isInteger(radius) || radius < 1 || radius > 500) return { error: await T("Travel distance must be between 1 and 500 miles.") };
   const postcode = String(fd.get("postcode") ?? "").trim();
-  if (!isValidUkPostcode(postcode)) return { error: "Please enter a valid UK postcode." };
+  if (!isValidUkPostcode(postcode)) return { error: await T("Please enter a valid UK postcode.") };
 
   const entries: { date: Date; startTime: string | null; endTime: string | null; rateAmount: number | null; rateType: PayType | null }[] = [];
   for (const d of days) {
     const start = String(fd.get(`start-${d}`) ?? "");
     const end = String(fd.get(`end-${d}`) ?? "");
-    if ((start && !TIME_RE.test(start)) || (end && !TIME_RE.test(end))) return { error: `Please check the times on ${d}.` };
-    if (!!start !== !!end) return { error: `Please give both a start and end time on ${d} (or leave both empty).` };
+    if ((start && !TIME_RE.test(start)) || (end && !TIME_RE.test(end))) return { error: await T("Please check the times on {d}.", { d }) };
+    if (!!start !== !!end) return { error: await T("Please give both a start and end time on {d} (or leave both empty).", { d }) };
     const rateRaw = String(fd.get(`rate-${d}`) ?? "").trim();
     const rate = rateRaw === "" ? null : Number(rateRaw);
-    if (rate != null && (!Number.isFinite(rate) || rate < 0 || rate > 5000)) return { error: `Please check the rate on ${d}.` };
+    if (rate != null && (!Number.isFinite(rate) || rate < 0 || rate > 5000)) return { error: await T("Please check the rate on {d}.", { d }) };
     const rt = String(fd.get(`rateType-${d}`) ?? "SHIFT");
     entries.push({
       date: new Date(`${d}T00:00:00Z`),
@@ -143,7 +146,11 @@ export async function saveAvailability(_: ActionState, fd: FormData): Promise<Ac
     db.availability.createMany({ data: entries.map((e) => ({ driverId: driver.id, ...e })) }),
   ]);
   revalidatePath("/driver", "layout");
-  return { ok: entries.length ? `Saved — you're available on ${entries.length} day(s), up to ${radius} miles away.` : "Saved — no days selected." };
+  return {
+    ok: entries.length
+      ? await T("Saved — you're available on {n} day(s), up to {r} miles away.", { n: entries.length, r: radius })
+      : await T("Saved — no days selected."),
+  };
 }
 
 export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionState> {
@@ -151,11 +158,11 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
   const jobId = String(fd.get("jobId"));
   const message = String(fd.get("message") ?? "").trim().slice(0, 500) || null;
   const contactErr = contactDetailsError(message);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   const job = await db.job.findUnique({ where: { id: jobId } });
-  if (!job || !isLive(job)) return { error: "This job is no longer open." };
-  if (!driver.licenceClasses.length) return { error: "Add your licence class to your profile first." };
-  if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: "Your licence class doesn't cover this job." };
+  if (!job || !isLive(job)) return { error: await T("This job is no longer open.") };
+  if (!driver.licenceClasses.length) return { error: await T("Add your licence class to your profile first.") };
+  if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: await T("Your licence class doesn't cover this job.") };
 
   const existing = await db.application.findUnique({ where: { jobId_driverId: { jobId, driverId: driver.id } } });
   if (existing?.status === "INVITED" && job.kind === "SHIFT") {
@@ -163,10 +170,10 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
     try {
       await bookDriver(jobId, driver.id);
     } catch (e) {
-      return { error: e instanceof BookingError ? e.message : "Something went wrong." };
+      return { error: await T(e instanceof BookingError ? e.message : "Something went wrong.") };
     }
     revalidatePath(`/jobs/${jobId}`);
-    return { ok: "You're booked! The company has your details." };
+    return { ok: await T("You're booked! The company has your details.") };
   }
   await db.application.upsert({
     where: { jobId_driverId: { jobId, driverId: driver.id } },
@@ -174,7 +181,9 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
     update: { status: "APPLIED", message },
   });
   revalidatePath(`/jobs/${jobId}`);
-  return { ok: job.kind === "PERMANENT" ? "Sent! The company can now see your profile and contact details." : "Sent! The company will see you're available." };
+  return {
+    ok: await T(job.kind === "PERMANENT" ? "Sent! The company can now see your profile and contact details." : "Sent! The company will see you're available."),
+  };
 }
 
 export async function withdrawApplication(fd: FormData) {
@@ -195,7 +204,7 @@ export async function savePermanentPrefs(_: ActionState, fd: FormData): Promise<
   const schedule = String(fd.get("permSchedule") ?? "").trim().slice(0, 120) || null;
   const note = String(fd.get("permNote") ?? "").trim().slice(0, 500) || null;
   const contactErr = contactDetailsError(schedule, note);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   await db.driverProfile.update({
     where: { id: driver.id },
     data: {
@@ -208,5 +217,9 @@ export async function savePermanentPrefs(_: ActionState, fd: FormData): Promise<
     },
   });
   revalidatePath("/driver", "layout");
-  return { ok: on ? `Saved — companies can see you're open to permanent work for the next ${PERM_SEEKING_DAYS} days.` : "Saved — you're not shown as looking for permanent work." };
+  return {
+    ok: on
+      ? await T("Saved — companies can see you're open to permanent work for the next {n} days.", { n: PERM_SEEKING_DAYS })
+      : await T("Saved — you're not shown as looking for permanent work."),
+  };
 }

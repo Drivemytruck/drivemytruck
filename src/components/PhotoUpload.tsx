@@ -1,5 +1,6 @@
 "use client";
 
+import { makeTx, type Lang } from "@/lib/tx";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { removeAvatar, uploadAvatar } from "@/app/account/actions";
@@ -21,7 +22,8 @@ async function resize(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("resize failed"))), "image/jpeg", 0.85));
 }
 
-export function PhotoUpload({ name, src, label }: { name: string; src: string | null; label: string }) {
+export function PhotoUpload({ name, src, label, lang = "en" }: { name: string; src: string | null; label: string; lang?: Lang }) {
+  const tx = makeTx(lang);
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -37,7 +39,7 @@ export function PhotoUpload({ name, src, label }: { name: string; src: string | 
     try {
       blob = await resize(file);
     } catch {
-      setError("Sorry, we couldn't read that image. Please try a different photo.");
+      setError(tx("Sorry, we couldn't read that image. Please try a different photo."));
       return;
     }
     setPreview(URL.createObjectURL(blob));
@@ -58,10 +60,10 @@ export function PhotoUpload({ name, src, label }: { name: string; src: string | 
       <Avatar name={name} src={shown} size={72} />
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-navy-900">{label}</p>
-        <p className="text-xs text-slate-500">A clear, friendly photo helps you get booked.</p>
+        <p className="text-xs text-slate-500">{tx("A clear, friendly photo helps you get booked.")}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <button type="button" className="btn-navy btn-sm" disabled={pending} onClick={() => input.current?.click()}>
-            {pending ? "Uploading…" : shown ? "Change photo" : "Add photo"}
+            {pending ? tx("Uploading…") : shown ? tx("Change photo") : tx("Add photo")}
           </button>
           {shown && !pending && (
             <button
@@ -75,7 +77,7 @@ export function PhotoUpload({ name, src, label }: { name: string; src: string | 
                 })
               }
             >
-              Remove
+              {tx("Remove")}
             </button>
           )}
         </div>

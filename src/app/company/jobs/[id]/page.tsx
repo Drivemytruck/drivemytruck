@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -31,6 +32,7 @@ export default async function CompanyJobPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ posted?: string }>;
 }) {
+  const { tx } = await getTx();
   const { id } = await params;
   const { posted } = await searchParams;
   const { company } = await requireCompany();
@@ -104,64 +106,64 @@ export default async function CompanyJobPage({
   return (
     <div className="page max-w-3xl space-y-5">
       <Link href="/company" className="text-sm text-slate-500 hover:text-navy-900">
-        ← Dashboard
+        ← {tx("Dashboard")}
       </Link>
       {posted && (
         <div className="card border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          ✅ Your {perm ? "advert" : "job"} is live. Drivers nearby can now see it — you can also invite {perm ? "drivers looking for permanent work" : "available drivers"} below.
+          ✅ {perm ? tx("Your advert is live. Drivers nearby can now see it — you can also invite drivers looking for permanent work below.") : tx("Your job is live. Drivers nearby can now see it — you can also invite available drivers below.")}
         </div>
       )}
       <div className="card p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            {perm && <span className="chip mb-1 bg-sky-50 text-sky-800">🤝 Permanent</span>}
-            <h1 className="h1">{licenceLabel(job.licenceClass)} driver</h1>
+            {perm && <span className="chip mb-1 bg-sky-50 text-sky-800">🤝 {tx("Permanent")}</span>}
+            <h1 className="h1">{tx("{class} driver", { class: licenceLabel(job.licenceClass) })}</h1>
             <p className="mt-1 text-slate-600">
               📍 {job.town ? `${job.town}, ` : ""}
               {job.postcode} ·{" "}
               {perm
-                ? `🗓️ ${job.schedule ?? ""} · ${job.startAsap ? "Start ASAP" : `Starts ${dateOnly(job.startAt)}`}${job.employmentType ? ` · ${job.employmentType}` : ""}`
+                ? `🗓️ ${job.schedule ?? ""} · ${job.startAsap ? tx("Start ASAP") : tx("Starts {date}", { date: dateOnly(job.startAt) })}${job.employmentType ? ` · ${tx(job.employmentType)}` : ""}`
                 : `🕒 ${dateTime(job.startAt)} · ⏱️ ${job.durationHours} h`}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {perm && job.status === "FILLED" ? <span className="chip bg-emerald-50 text-emerald-700">Hired</span> : perm && job.status === "OPEN" && !live ? <span className="chip bg-slate-200 text-slate-700">Expired</span> : perm && live ? null : <StatusBadge status={job.status} />}
-              {perm && live && <span className="chip bg-navy-50 text-navy-800">Live · {left} day{left === 1 ? "" : "s"} left</span>}
+              {perm && job.status === "FILLED" ? <span className="chip bg-emerald-50 text-emerald-700">{tx("Hired")}</span> : perm && job.status === "OPEN" && !live ? <span className="chip bg-slate-200 text-slate-700">{tx("Expired")}</span> : perm && live ? null : <StatusBadge status={job.status} tx={tx} />}
+              {perm && live && <span className="chip bg-navy-50 text-navy-800">{tx(left === 1 ? "Live · {n} day left" : "Live · {n} days left", { n: left })}</span>}
             </div>
           </div>
           <div className="text-right">
             <p className="text-2xl font-extrabold text-brand-500">{money(job.payAmount)}</p>
-            <p className="text-xs text-slate-500">{payUnit(job.payType)}</p>
+            <p className="text-xs text-slate-500">{tx(payUnit(job.payType))}</p>
           </div>
         </div>
         {perm && job.status === "OPEN" && left <= 3 && (
           <div className={`mt-4 rounded-xl p-3 text-sm ${live ? "bg-amber-50 text-amber-900" : "bg-slate-100 text-slate-700"}`}>
-            <p>{live ? `Your advert expires in ${left} day${left === 1 ? "" : "s"}.` : "Your advert has expired and is hidden from drivers."}</p>
+            <p>{live ? tx(left === 1 ? "Your advert expires in {n} day." : "Your advert expires in {n} days.", { n: left }) : tx("Your advert has expired and is hidden from drivers.")}</p>
             <form action={renewJob} className="mt-2">
               <input type="hidden" name="jobId" value={job.id} />
-              <button className="btn-navy btn-sm">Renew for {PERM_LISTING_DAYS} days (free during launch)</button>
+              <button className="btn-navy btn-sm">{tx("Renew for {n} days (free during launch)", { n: PERM_LISTING_DAYS })}</button>
             </form>
           </div>
         )}
         {job.status === "OPEN" && (
           <form action={cancelJob} className="mt-4">
             <input type="hidden" name="jobId" value={job.id} />
-            <button className="btn-ghost btn-sm text-slate-500">Cancel this job</button>
+            <button className="btn-ghost btn-sm text-slate-500">{tx("Cancel this job")}</button>
           </form>
         )}
       </div>
 
       {job.booking && job.booking.status !== "CANCELLED" && (
         <div className="card border-emerald-200 p-5">
-          <p className="font-semibold text-emerald-700">✅ Booked: {job.booking.driver.fullName}</p>
+          <p className="font-semibold text-emerald-700">✅ {tx("Booked")}: {job.booking.driver.fullName}</p>
           <Link href={`/bookings/${job.booking.id}`} className="btn-navy btn-sm mt-3">
-            View booking & contact details
+            {tx("View booking & contact details")}
           </Link>
         </div>
       )}
 
       {hired && (
         <div className="card border-emerald-200 p-5">
-          <p className="font-semibold text-emerald-700">🎉 Hired: {hired.driver.fullName}</p>
+          <p className="font-semibold text-emerald-700">🎉 {tx("Hired")}: {hired.driver.fullName}</p>
           <p className="mt-1 text-sm text-slate-600">
             {hired.driver.phone && <a className="underline" href={`tel:${hired.driver.phone.replace(/\s/g, "")}`}>{hired.driver.phone}</a>}
             {hired.driver.phone && " · "}
@@ -173,27 +175,27 @@ export default async function CompanyJobPage({
       {job.status === "OPEN" && (
         <>
           <section className="space-y-3">
-            <h2 className="h2">{perm ? "Interested drivers" : "Drivers who are available"} ({applicants.length})</h2>
+            <h2 className="h2">{perm ? tx("Interested drivers") : tx("Drivers who are available")} ({applicants.length})</h2>
             {applicants.length ? (
               applicants.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message}>
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} note={a.message} tx={tx}>
                   {perm ? (
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         {a.driver.phone && (
                           <a href={`tel:${a.driver.phone.replace(/\s/g, "")}`} className="btn-navy btn-sm">
-                            📞 Call
+                            📞 {tx("Call")}
                           </a>
                         )}
                         <a href={`mailto:${a.driver.user.email}`} className="btn-outline btn-sm">
-                          ✉️ Email
+                          ✉️ {tx("Email")}
                         </a>
                       </div>
                       <ActionForm action={markHired}>
                         <input type="hidden" name="jobId" value={job.id} />
                         <input type="hidden" name="driverId" value={a.driverId} />
-                        <SubmitButton className="btn-primary w-full" pendingText="Saving…">
-                          ✓ Mark {a.driver.fullName.split(" ")[0]} as hired
+                        <SubmitButton className="btn-primary w-full" pendingText={tx("Saving…")}>
+                          ✓ {tx("Mark {name} as hired", { name: a.driver.fullName.split(" ")[0] })}
                         </SubmitButton>
                       </ActionForm>
                     </div>
@@ -201,29 +203,29 @@ export default async function CompanyJobPage({
                   <ActionForm action={acceptApplicant}>
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={a.driverId} />
-                    <SubmitButton className="btn-primary w-full" pendingText="Booking…">
-                      Book {a.driver.fullName.split(" ")[0]}
+                    <SubmitButton className="btn-primary w-full" pendingText={tx("Booking…")}>
+                      {tx("Book {name}", { name: a.driver.fullName.split(" ")[0] })}
                     </SubmitButton>
                   </ActionForm>
                   )}
                 </DriverCard>
               ))
             ) : (
-              <Empty title="No drivers have responded yet">Nearby drivers can see your job. Invite someone below to speed things up.</Empty>
+              <Empty title={tx("No drivers have responded yet")}>{tx("Nearby drivers can see your job. Invite someone below to speed things up.")}</Empty>
             )}
           </section>
 
           {invited.length > 0 && (
             <section className="space-y-2">
-              <h2 className="h2">Invited — waiting for driver ({invited.length})</h2>
+              <h2 className="h2">{tx("Invited — waiting for driver")} ({invited.length})</h2>
               {invited.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} />
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} tx={tx} />
               ))}
             </section>
           )}
 
           <section className="space-y-3">
-            <h2 className="h2">{perm ? "Drivers looking for permanent work nearby" : "Suggested drivers available that day"}</h2>
+            <h2 className="h2">{perm ? tx("Drivers looking for permanent work nearby") : tx("Suggested drivers available that day")}</h2>
             {suggestions.length ? (
               suggestions.map(({ d, distance, day }) => (
                 <DriverCard
@@ -233,19 +235,19 @@ export default async function CompanyJobPage({
                   reliability={reliability.get(d.user.id)}
                   rating={ratings.get(d.user.id)}
                   distance={distance}
-                  availability={day ? [`Available ${windowLabel(day)}`, dayRateLabel(day)].filter(Boolean).join(" · ") : null}
+                  availability={day ? [`Available ${windowLabel(day)}`, dayRateLabel(day)].filter(Boolean).join(" · ") : null} tx={tx}
                 >
                   <ActionForm action={inviteDriver}>
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={d.id} />
-                    <SubmitButton className="btn-outline w-full" pendingText="Sending…">
-                      Invite to this job
+                    <SubmitButton className="btn-outline w-full" pendingText={tx("Sending…")}>
+                      {tx("Invite to this job")}
                     </SubmitButton>
                   </ActionForm>
                 </DriverCard>
               ))
             ) : (
-              <Empty title={perm ? "No drivers looking for permanent work nearby yet" : "No matching drivers marked available that day yet"} />
+              <Empty title={perm ? tx("No drivers looking for permanent work nearby yet") : tx("No matching drivers marked available that day yet")} />
             )}
           </section>
         </>

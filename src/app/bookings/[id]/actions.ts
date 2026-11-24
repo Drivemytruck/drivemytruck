@@ -6,6 +6,9 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { LATE_CANCEL_HOURS, enforceNoShowPolicy } from "@/lib/reliability";
+import { getTx } from "@/lib/i18n";
+
+const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
 import type { ActionState } from "@/components/forms";
 
 async function loadForUser(bookingId: string) {
@@ -78,12 +81,12 @@ export async function reportNoShow(fd: FormData) {
 /** Driver disputes a no-show report; an admin decides. */
 export async function disputeNoShow(_: ActionState, fd: FormData): Promise<ActionState> {
   const { booking, side } = await loadForUser(String(fd.get("bookingId")));
-  if (side !== "DRIVER" || booking.status !== "NO_SHOW" || booking.disputeStatus) return { error: "This can't be disputed." };
+  if (side !== "DRIVER" || booking.status !== "NO_SHOW" || booking.disputeStatus) return { error: await T("This can't be disputed.") };
   const text = String(fd.get("text") ?? "").trim().slice(0, 1000);
-  if (text.length < 10) return { error: "Please explain briefly what happened." };
+  if (text.length < 10) return { error: await T("Please explain briefly what happened.") };
   await db.booking.update({ where: { id: booking.id }, data: { disputeText: text, disputeStatus: "OPEN" } });
   revalidatePath(`/bookings/${booking.id}`);
-  return { ok: "Thanks — our team will review it and update your record." };
+  return { ok: await T("Thanks — our team will review it and update your record.") };
 }
 
 const reviewSchema = z.object({
@@ -94,18 +97,18 @@ const reviewSchema = z.object({
 export async function leaveReview(_: ActionState, fd: FormData): Promise<ActionState> {
   const { user, booking, side } = await loadForUser(String(fd.get("bookingId")));
   if (booking.status !== "COMPLETED" && booking.status !== "NO_SHOW") {
-    return { error: "You can review once the job is marked as completed." };
+    return { error: await T("You can review once the job is marked as completed.") };
   }
   const parsed = reviewSchema.safeParse({ rating: fd.get("rating"), comment: fd.get("comment") || undefined });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Please choose a star rating." };
+  if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please choose a star rating.") };
   const contactErr = contactDetailsError(parsed.data.comment);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   const subjectId = side === "DRIVER" ? booking.company.userId : booking.driver.userId;
   const exists = await db.review.findUnique({ where: { bookingId_authorId: { bookingId: booking.id, authorId: user.id } } });
-  if (exists) return { error: "You've already reviewed this job." };
+  if (exists) return { error: await T("You've already reviewed this job.") };
   await db.review.create({
     data: { bookingId: booking.id, authorId: user.id, subjectId, rating: parsed.data.rating, comment: parsed.data.comment ?? null },
   });
   revalidatePath(`/bookings/${booking.id}`);
-  return { ok: "Thanks! Your review will be published when both sides have reviewed, or after 14 days." };
+  return { ok: await T("Thanks! Your review will be published when both sides have reviewed, or after 14 days.") };
 }

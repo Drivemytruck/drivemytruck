@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -18,6 +19,7 @@ import { inviteDriver } from "@/app/company/actions";
 export const metadata: Metadata = { title: "Driver profile" };
 
 export default async function DriverPublicPage({ params }: { params: Promise<{ id: string }> }) {
+  const { tx } = await getTx();
   const { id } = await params;
   const viewer = await requireUser();
   const driver = await db.driverProfile.findUnique({
@@ -54,10 +56,10 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
         </div>
         <h1 className="h1 mt-3">{driver.fullName}</h1>
         <div className="mt-1 flex justify-center">
-          <StatusBadge status={driver.verificationStatus} />
+          <StatusBadge status={driver.verificationStatus} tx={tx} />
         </div>
         <p className="mt-2 text-sm text-slate-600">
-          {driver.licenceClasses.map(licenceLabel).join(", ") || "No licence class set"}
+          {driver.licenceClasses.map(licenceLabel).join(", ") || tx("No licence class set")}
           {driver.town && ` · ${driver.town}`}
         </p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -67,7 +69,7 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
             <p className="text-lg font-extrabold text-navy-900">{driver.experienceYears ?? "—"}</p>
-            <p className="text-[11px] text-slate-500">years exp.</p>
+            <p className="text-[11px] text-slate-500">{tx("years exp.")}</p>
           </div>
           <div className="rounded-xl bg-slate-50 p-3">
             <p className="text-lg font-extrabold text-navy-900">{reliability.score != null ? `${reliability.score}%` : "—"}</p>
@@ -75,7 +77,7 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
           </div>
         </div>
         <div className="mt-3 flex justify-center">
-          <ReliabilityBadges r={reliability} role="DRIVER" />
+          <ReliabilityBadges r={reliability} role="DRIVER" tx={tx} />
         </div>
         {driver.bio && <p className="mt-4 text-left whitespace-pre-line text-slate-700">{driver.bio}</p>}
         {driver.skills.length > 0 && (
@@ -90,20 +92,20 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
       </div>
 
       <section className="card p-5">
-        <h2 className="h2">Credentials</h2>
+        <h2 className="h2">{tx("Credentials")}</h2>
         <ul className="mt-3 divide-y divide-slate-100">
           {DOCUMENT_TYPES.filter((m) => m.required || docs.has(m.type)).map((m) => {
             const d = docs.get(m.type);
             const expired = d?.expiresAt && d.expiresAt.getTime() < Date.now();
             return (
               <li key={m.type} className="flex items-center justify-between py-2.5 text-sm">
-                <span className="text-slate-700">{m.label}</span>
+                <span className="text-slate-700">{tx(m.label)}</span>
                 {expired ? (
-                  <span className="chip bg-brand-50 text-brand-700">Expired</span>
+                  <span className="chip bg-brand-50 text-brand-700">{tx("Expired")}</span>
                 ) : d ? (
-                  <StatusBadge status={d.status} />
+                  <StatusBadge status={d.status} tx={tx} />
                 ) : (
-                  <span className="chip bg-slate-100 text-slate-500">Not added</span>
+                  <span className="chip bg-slate-100 text-slate-500">{tx("Not added")}</span>
                 )}
               </li>
             );
@@ -112,8 +114,8 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
       </section>
 
       <section className="card p-5">
-        <h2 className="h2">Available (next 2 weeks)</h2>
-        <p className="text-xs text-slate-500">Travels up to {driver.travelRadiusMiles} miles{driver.town ? ` from ${driver.town}` : ""}</p>
+        <h2 className="h2">{tx("Available (next 2 weeks)")}</h2>
+        <p className="text-xs text-slate-500">{tx("Travels up to {n} miles", { n: driver.travelRadiusMiles })}{driver.town ? ` · ${driver.town}` : ""}</p>
         {driver.availability.length ? (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {driver.availability.map((a) => (
@@ -124,13 +126,13 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">No availability added.</p>
+          <p className="mt-2 text-sm text-slate-500">{tx("No availability added.")}</p>
         )}
       </section>
 
       {viewer.company && (
         <section className="card p-5">
-          <h2 className="h2">Invite to a job</h2>
+          <h2 className="h2">{tx("Invite to a job")}</h2>
           {openJobs.length ? (
             <ActionForm action={inviteDriver} className="mt-3 space-y-3">
               <input type="hidden" name="driverId" value={driver.id} />
@@ -141,20 +143,20 @@ export default async function DriverPublicPage({ params }: { params: Promise<{ i
                   </option>
                 ))}
               </select>
-              <SubmitButton pendingText="Sending…">Send invite</SubmitButton>
+              <SubmitButton pendingText={tx("Sending…")}>{tx("Send invite")}</SubmitButton>
             </ActionForm>
           ) : (
             <p className="mt-2 text-sm text-slate-500">
               You have no open jobs this driver can do.{" "}
               <Link href="/company/jobs/new" className="font-semibold text-brand-600 underline">
-                Post a job
+                {tx("Post a job")}
               </Link>
             </p>
           )}
         </section>
       )}
 
-      <ReviewList summary={summary} />
+      <ReviewList summary={summary} tx={tx} />
     </div>
   );
 }

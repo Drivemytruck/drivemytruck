@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTx } from "@/lib/i18n";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
 import { LICENCE_CLASSES, drivableClasses } from "@/lib/constants";
@@ -18,6 +19,7 @@ export default async function FindDriversPage({
 }: {
   searchParams: Promise<{ class?: string; date?: string; radius?: string; verified?: string; perm?: string }>;
 }) {
+  const { tx } = await getTx();
   const { company } = await requireCompany();
   const sp = await searchParams;
   const jobClass = LICENCE_CLASSES.some((c) => c.value === sp.class) ? sp.class! : "";
@@ -57,14 +59,14 @@ export default async function FindDriversPage({
   return (
     <div className="page space-y-5">
       <div>
-        <h1 className="h1">Find drivers</h1>
+        <h1 className="h1">{tx("Find drivers")}</h1>
         <p className="muted">Drivers near {company.town ?? company.postcode ?? "you"}. Open a profile to invite them to one of your jobs.</p>
       </div>
       <form className="card grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 sm:items-end">
         <label>
-          <span className="label">Class</span>
+          <span className="label">{tx("Class")}</span>
           <select name="class" defaultValue={jobClass} className="input">
-            <option value="">Any</option>
+            <option value="">{tx("Any")}</option>
             {LICENCE_CLASSES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -73,22 +75,22 @@ export default async function FindDriversPage({
           </select>
         </label>
         <label>
-          <span className="label">Available on</span>
+          <span className="label">{tx("Available on")}</span>
           <input type="date" name="date" min={todayISO()} defaultValue={date} className="input" />
         </label>
         <label>
-          <span className="label">Within (miles)</span>
+          <span className="label">{tx("Within (miles)")}</span>
           <input type="number" name="radius" min={5} max={300} defaultValue={radius} className="input" />
         </label>
         <label className="flex items-center gap-2 pb-3 text-sm">
           <input type="checkbox" name="verified" value="1" defaultChecked={verifiedOnly} className="h-5 w-5 accent-brand-500" />
-          Verified only
+          {tx("Verified only")}
         </label>
         <label className="flex items-center gap-2 pb-3 text-sm">
           <input type="checkbox" name="perm" value="1" defaultChecked={permOnly} className="h-5 w-5 accent-brand-500" />
-          Open to permanent
+          {tx("Open to permanent")}
         </label>
-        <button className="btn-navy col-span-2 sm:col-span-1">Search</button>
+        <button className="btn-navy col-span-2 sm:col-span-1">{tx("Search")}</button>
       </form>
       {list.length ? (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -101,12 +103,13 @@ export default async function FindDriversPage({
               distance={distance}
               rating={ratings.get(d.user.id)}
               availableToday={!date && d.availability.length > 0}
-              availability={date && d.availability[0] ? [`Available ${windowLabel(d.availability[0])}`, dayRateLabel(d.availability[0])].filter(Boolean).join(" · ") : null}
+              availability={date && d.availability[0] ? [`${tx("Available")} ${tx(windowLabel(d.availability[0]))}`, dayRateLabel(d.availability[0])].filter(Boolean).join(" · ") : null}
+              tx={tx}
             />
           ))}
         </div>
       ) : (
-        <Empty title="No drivers match these filters yet">Try a bigger radius or a different date.</Empty>
+        <Empty title={tx("No drivers match these filters yet")}>{tx("Try a bigger radius or a different date.")}</Empty>
       )}
     </div>
   );

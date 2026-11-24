@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { initials } from "@/lib/format";
+import type { Tx } from "@/lib/tx";
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
@@ -35,8 +36,8 @@ export function CheckboxGroup({
   );
 }
 
-export function Stars({ value, count, size = "sm" }: { value: number | null; count?: number; size?: "sm" | "lg" }) {
-  if (value == null) return <span className="text-xs text-slate-500">No reviews yet</span>;
+export function Stars({ value, count, size = "sm", tx = (s) => s }: { value: number | null; count?: number; size?: "sm" | "lg"; tx?: Tx }) {
+  if (value == null) return <span className="text-xs text-slate-500">{tx("No reviews yet")}</span>;
   const full = Math.round(value);
   return (
     <span className={`inline-flex items-center gap-1 ${size === "lg" ? "text-base" : "text-xs"}`}>
@@ -85,8 +86,8 @@ const statusText: Record<string, string> = {
   NO_SHOW: "Driver no-show",
 };
 
-export function StatusBadge({ status }: { status: string }) {
-  return <span className={`chip ${statusStyles[status] ?? "bg-slate-100 text-slate-700"}`}>{statusText[status] ?? status}</span>;
+export function StatusBadge({ status, tx = (s) => s }: { status: string; tx?: Tx }) {
+  return <span className={`chip ${statusStyles[status] ?? "bg-slate-100 text-slate-700"}`}>{tx(statusText[status] ?? status)}</span>;
 }
 
 export function Avatar({ name, size = 44, src }: { name: string; size?: number; src?: string | null }) {

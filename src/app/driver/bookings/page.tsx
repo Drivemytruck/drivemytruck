@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
@@ -27,6 +28,7 @@ export default async function DriverBookingsPage() {
       orderBy: { updatedAt: "desc" },
     }),
   ]);
+  const { tx } = await getTx();
   const upcoming = bookings.filter((b) => b.status === "CONFIRMED");
   const past = bookings.filter((b) => b.status !== "CONFIRMED");
   const invites = applications.filter((a) => a.status === "INVITED");
@@ -39,7 +41,7 @@ export default async function DriverBookingsPage() {
         <p className="truncate text-sm text-slate-500">{sub}</p>
         {badge && (
           <div className="mt-1.5">
-            <StatusBadge status={badge} />
+            <StatusBadge status={badge} tx={tx} />
           </div>
         )}
       </div>
@@ -49,11 +51,11 @@ export default async function DriverBookingsPage() {
 
   return (
     <div className="page max-w-2xl space-y-6">
-      <h1 className="h1">My work</h1>
+      <h1 className="h1">{tx("My work")}</h1>
 
       {invites.length > 0 && (
         <section className="space-y-2">
-          <h2 className="h2">📩 Invites for you</h2>
+          <h2 className="h2">📩 {tx("Invites for you")}</h2>
           {invites.map((a) => (
             <Row
               key={a.id}
@@ -69,13 +71,13 @@ export default async function DriverBookingsPage() {
 
       {hiredRoles.length > 0 && (
         <section className="space-y-2">
-          <h2 className="h2">🎉 Permanent roles you got</h2>
+          <h2 className="h2">🎉 {tx("Permanent roles you got")}</h2>
           {hiredRoles.map((a) => (
             <Row
               key={a.id}
               href={`/jobs/${a.jobId}`}
               title={`${licenceLabel(a.job.licenceClass)} · ${a.job.company.companyName}`}
-              sub={`${a.job.schedule ?? "Permanent"} · ${a.job.town ?? a.job.postcode}`}
+              sub={`${a.job.schedule ?? tx("Permanent")} · ${a.job.town ?? a.job.postcode}`}
               right={payShort(a.job.payAmount, a.job.payType)}
             />
           ))}
@@ -83,7 +85,7 @@ export default async function DriverBookingsPage() {
       )}
 
       <section className="space-y-2">
-        <h2 className="h2">Upcoming bookings</h2>
+        <h2 className="h2">{tx("Upcoming bookings")}</h2>
         {upcoming.length ? (
           upcoming.map((b) => (
             <Row
@@ -96,9 +98,9 @@ export default async function DriverBookingsPage() {
             />
           ))
         ) : (
-          <Empty title="No bookings yet">
+          <Empty title={tx("No bookings yet")}>
             <Link href="/driver" className="font-semibold text-brand-600 underline">
-              Browse jobs near you
+              {tx("Browse jobs near you")}
             </Link>
           </Empty>
         )}
@@ -106,13 +108,13 @@ export default async function DriverBookingsPage() {
 
       {pending.length > 0 && (
         <section className="space-y-2">
-          <h2 className="h2">Waiting for reply</h2>
+          <h2 className="h2">{tx("Waiting for reply")}</h2>
           {pending.map((a) => (
             <Row
               key={a.id}
               href={`/jobs/${a.jobId}`}
               title={`${licenceLabel(a.job.licenceClass)} · ${a.job.company.companyName}`}
-              sub={`${a.job.kind === "PERMANENT" ? `Permanent · ${a.job.schedule ?? ""}` : dateTime(a.job.startAt)} · ${a.job.town ?? a.job.postcode}`}
+              sub={`${a.job.kind === "PERMANENT" ? `${tx("Permanent")} · ${a.job.schedule ?? ""}` : dateTime(a.job.startAt)} · ${a.job.town ?? a.job.postcode}`}
               right={payShort(a.job.payAmount, a.job.payType)}
               badge="APPLIED"
             />
@@ -122,13 +124,13 @@ export default async function DriverBookingsPage() {
 
       {past.length > 0 && (
         <section className="space-y-2">
-          <h2 className="h2">Past work</h2>
+          <h2 className="h2">{tx("Past work")}</h2>
           {past.map((b) => (
             <Row
               key={b.id}
               href={`/bookings/${b.id}`}
               title={`${licenceLabel(b.job.licenceClass)} · ${b.company.companyName}`}
-              sub={`${dateTime(b.job.startAt)}${b.status === "COMPLETED" && !b.reviews.length ? " · ⭐ Leave a review" : ""}`}
+              sub={`${dateTime(b.job.startAt)}${b.status === "COMPLETED" && !b.reviews.length ? ` · ⭐ ${tx("Leave a review")}` : ""}`}
               right={money(b.job.payAmount)}
               badge={b.status}
             />

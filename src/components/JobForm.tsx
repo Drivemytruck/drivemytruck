@@ -1,5 +1,6 @@
 "use client";
 
+import { makeTx, type Lang } from "@/lib/tx";
 import { useState } from "react";
 import { ActionForm, SubmitButton, type ActionState } from "./forms";
 import { Field } from "./ui";
@@ -13,9 +14,11 @@ type Props = {
   vehicleTypes: readonly string[];
   employmentTypes: readonly string[];
   listingDays: number;
+  lang?: Lang;
 };
 
-export function JobForm({ action, postcode, today, licenceClasses, jobTypes, vehicleTypes, employmentTypes, listingDays }: Props) {
+export function JobForm({ action, postcode, today, licenceClasses, jobTypes, vehicleTypes, employmentTypes, listingDays, lang = "en" }: Props) {
+  const tx = makeTx(lang);
   const [kind, setKind] = useState<"SHIFT" | "PERMANENT">("SHIFT");
   const [asap, setAsap] = useState(true);
   const perm = kind === "PERMANENT";
@@ -23,11 +26,11 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
   return (
     <ActionForm action={action} className="space-y-5">
       <fieldset>
-        <legend className="label">What do you need?</legend>
+        <legend className="label">{tx("What do you need?")}</legend>
         <div className="grid grid-cols-2 gap-2">
           {[
-            { v: "SHIFT", t: "🕒 A shift", s: "One-off / ad-hoc work" },
-            { v: "PERMANENT", t: "🤝 Permanent", s: "Regular or full-time role" },
+            { v: "SHIFT", t: tx("🕒 A shift"), s: tx("One-off / ad-hoc work") },
+            { v: "PERMANENT", t: tx("🤝 Permanent"), s: tx("Regular or full-time role") },
           ].map((o) => (
             <label key={o.v} className="cursor-pointer">
               <input
@@ -48,7 +51,7 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
       </fieldset>
 
       <fieldset>
-        <legend className="label">Driver type</legend>
+        <legend className="label">{tx("Driver type")}</legend>
         <div className="grid grid-cols-3 gap-2">
           {licenceClasses.map((c, i) => (
             <label key={c.value} className="cursor-pointer">
@@ -61,8 +64,8 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
         </div>
       </fieldset>
 
-      <Field label={perm ? "Depot / base postcode" : "Start location postcode"}>
-        <input className="input uppercase" name="postcode" defaultValue={postcode} placeholder="e.g. B1 1AA" required />
+      <Field label={perm ? tx("Depot / base postcode") : tx("Start location postcode")}>
+        <input className="input uppercase" name="postcode" defaultValue={postcode} placeholder={tx("e.g. B1 1AA")} required />
       </Field>
 
       {perm ? (
@@ -70,32 +73,32 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
           <div className="grid grid-cols-2 gap-3">
             <label className="col-span-2 flex items-center gap-3 text-sm">
               <input type="checkbox" name="startAsap" checked={asap} onChange={(e) => setAsap(e.target.checked)} className="h-5 w-5 accent-brand-500" />
-              Start as soon as possible
+              {tx("Start as soon as possible")}
             </label>
             {!asap && (
-              <Field label="Start date">
+              <Field label={tx("Start date")}>
                 <input className="input" type="date" name="date" min={today} defaultValue={today} required />
               </Field>
             )}
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Pay (£)">
+            <Field label={tx("Pay (£)")}>
               <input className="input" type="number" name="pay" min={1} step="0.01" placeholder="17.50" required />
             </Field>
-            <Field label="Pay is">
+            <Field label={tx("Pay is")}>
               <select className="input" name="payType" defaultValue="HOURLY">
-                <option value="HOURLY">per hour</option>
-                <option value="ANNUAL">per year</option>
+                <option value="HOURLY">{tx("per hour")}</option>
+                <option value="ANNUAL">{tx("per year")}</option>
               </select>
             </Field>
           </div>
-          <Field label="Shift pattern" hint="e.g. Mon–Fri nights, 4 on 4 off, weekends only">
+          <Field label={tx("Shift pattern")} hint={tx("e.g. Mon–Fri nights, 4 on 4 off, weekends only")}>
             <input className="input" name="schedule" maxLength={120} required />
           </Field>
-          <Field label="Employment type">
+          <Field label={tx("Employment type")}>
             <select className="input" name="employmentType" defaultValue={employmentTypes[0]}>
               {employmentTypes.map((t) => (
-                <option key={t}>{t}</option>
+                <option key={t} value={t}>{tx(t)}</option>
               ))}
             </select>
           </Field>
@@ -103,24 +106,24 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Start date">
+            <Field label={tx("Start date")}>
               <input className="input" type="date" name="date" min={today} defaultValue={today} required />
             </Field>
-            <Field label="Start time">
+            <Field label={tx("Start time")}>
               <input className="input" type="time" name="time" defaultValue="06:00" required />
             </Field>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Field label="Duration (hours)">
+            <Field label={tx("Duration (hours)")}>
               <input className="input" type="number" name="durationHours" min={1} step="0.5" defaultValue={10} required />
             </Field>
-            <Field label="Pay (£)">
+            <Field label={tx("Pay (£)")}>
               <input className="input" type="number" name="pay" min={1} step="0.01" placeholder="250" required />
             </Field>
-            <Field label="Pay is">
+            <Field label={tx("Pay is")}>
               <select className="input" name="payType" defaultValue="SHIFT">
-                <option value="SHIFT">per shift</option>
-                <option value="HOURLY">per hour</option>
+                <option value="SHIFT">{tx("per shift")}</option>
+                <option value="HOURLY">{tx("per hour")}</option>
               </select>
             </Field>
           </div>
@@ -128,25 +131,25 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Job type">
+        <Field label={tx("Job type")}>
           <select className="input" name="jobType" defaultValue="">
             <option value="">—</option>
             {jobTypes.map((t) => (
-              <option key={t}>{t}</option>
+              <option key={t} value={t}>{tx(t)}</option>
             ))}
           </select>
         </Field>
-        <Field label="Vehicle type">
+        <Field label={tx("Vehicle type")}>
           <select className="input" name="vehicleType" defaultValue="">
             <option value="">—</option>
             {vehicleTypes.map((t) => (
-              <option key={t}>{t}</option>
+              <option key={t} value={t}>{tx(t)}</option>
             ))}
           </select>
         </Field>
       </div>
 
-      <Field label={perm ? "About the role" : "About the job (optional)"}>
+      <Field label={perm ? tx("About the role") : tx("About the job (optional)")}>
         <textarea
           className="input min-h-24"
           name="description"
@@ -155,20 +158,20 @@ export function JobForm({ action, postcode, today, licenceClasses, jobTypes, veh
         />
       </Field>
       {perm && (
-        <Field label="Benefits (optional)" hint="e.g. Overtime, holiday pay, pension, sign-on bonus">
+        <Field label={tx("Benefits (optional)")} hint={tx("e.g. Overtime, holiday pay, pension, sign-on bonus")}>
           <textarea className="input min-h-16" name="benefits" maxLength={1000} />
         </Field>
       )}
-      <Field label="Requirements (optional)" hint="E.g. ADR, min. 2 years' experience, insurance: age 25+, max 6 points.">
+      <Field label={tx("Requirements (optional)")} hint={tx("E.g. ADR, min. 2 years' experience, insurance: age 25+, max 6 points.")}>
         <textarea className="input min-h-20" name="requirements" maxLength={1000} />
       </Field>
 
       {perm && (
         <p className="rounded-xl bg-navy-50 px-4 py-3 text-sm text-navy-900">
-          Permanent adverts stay live for {listingDays} days. You can renew them from the job page — free during our launch period.
+          {tx("Permanent adverts stay live for {n} days. You can renew them from the job page — free during our launch period.", { n: listingDays })}
         </p>
       )}
-      <SubmitButton pendingText="Posting…">{perm ? "Post permanent role" : "Post job"}</SubmitButton>
+      <SubmitButton pendingText={tx("Posting…")}>{perm ? tx("Post permanent role") : tx("Post job")}</SubmitButton>
     </ActionForm>
   );
 }

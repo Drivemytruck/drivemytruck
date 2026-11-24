@@ -5,6 +5,7 @@ import { money } from "@/lib/format";
 import { Avatar, Stars } from "./ui";
 import { ReliabilityBadges } from "./ReliabilityBadges";
 import type { Reliability } from "@/lib/reliability";
+import type { Tx } from "@/lib/tx";
 
 export type DriverCardData = {
   id: string;
@@ -31,6 +32,7 @@ export function DriverCard({
   photo,
   reliability,
   children,
+  tx = (s) => s,
 }: {
   driver: DriverCardData;
   rating?: { average: number | null; count: number };
@@ -41,6 +43,7 @@ export function DriverCard({
   photo?: string | null;
   reliability?: Reliability;
   children?: ReactNode;
+  tx?: Tx;
 }) {
   return (
     <div className="card p-4">
@@ -49,38 +52,38 @@ export function DriverCard({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-bold text-navy-900">{driver.fullName}</p>
-            {driver.verificationStatus === "VERIFIED" && <span className="chip bg-emerald-50 text-emerald-700">✓ Verified</span>}
+            {driver.verificationStatus === "VERIFIED" && <span className="chip bg-emerald-50 text-emerald-700">✓ {tx("Verified")}</span>}
           </div>
           <p className="text-sm text-slate-600">
-            {driver.licenceClasses.map(licenceLabel).join(", ") || "No class set"}
+            {driver.licenceClasses.map(licenceLabel).join(", ") || tx("No class set")}
             {driver.town && ` · ${driver.town}`}
             {distance != null && <span className="text-slate-400"> · {Math.round(distance)} mi</span>}
           </p>
           {rating && (
             <div className="mt-0.5">
-              <Stars value={rating.average} count={rating.count} />
+              <Stars value={rating.average} count={rating.count} tx={tx} />
             </div>
           )}
           {reliability && (
             <div className="mt-1">
-              <ReliabilityBadges r={reliability} role="DRIVER" />
+              <ReliabilityBadges r={reliability} role="DRIVER" tx={tx} />
             </div>
           )}
         </div>
         {driver.rateAmount != null && (
           <div className="shrink-0 text-right">
             <p className="font-extrabold text-navy-900">{money(driver.rateAmount)}</p>
-            <p className="text-[11px] text-slate-500">{driver.rateType === "HOURLY" ? "per hour" : "per shift"}</p>
+            <p className="text-[11px] text-slate-500">{driver.rateType === "HOURLY" ? tx("per hour") : tx("per shift")}</p>
           </div>
         )}
       </Link>
       {(driver.skills.length > 0 || driver.experienceYears != null || availableToday || driver.openToPermanent) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {driver.openToPermanent && driver.permanentUntil && driver.permanentUntil > new Date() && (
-            <span className="chip bg-sky-50 text-sky-800">🤝 Open to permanent{driver.permSchedule ? ` · ${driver.permSchedule}` : ""}</span>
+            <span className="chip bg-sky-50 text-sky-800">🤝 {tx("Open to permanent")}{driver.permSchedule ? ` · ${driver.permSchedule}` : ""}</span>
           )}
-          {availableToday && <span className="chip bg-emerald-50 text-emerald-700">● Available today</span>}
-          {driver.experienceYears != null && <span className="chip bg-slate-100 text-slate-700">{driver.experienceYears} yrs exp.</span>}
+          {availableToday && <span className="chip bg-emerald-50 text-emerald-700">● {tx("Available today")}</span>}
+          {driver.experienceYears != null && <span className="chip bg-slate-100 text-slate-700">{tx("{n} yrs exp.", { n: driver.experienceYears })}</span>}
           {driver.skills.slice(0, 6).map((s) => (
             <span key={s} className="chip bg-navy-50 text-navy-800">
               {s}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -15,6 +16,7 @@ import { Avatar, StatusBadge } from "@/components/ui";
 export const metadata: Metadata = { title: "Company" };
 
 export default async function CompanyPublicPage({ params }: { params: Promise<{ id: string }> }) {
+  const { tx } = await getTx();
   const { id } = await params;
   const viewer = await requireUser();
   const company = await db.companyProfile.findUnique({
@@ -40,23 +42,23 @@ export default async function CompanyPublicPage({ params }: { params: Promise<{ 
           <div>
             <h1 className="h1">{company.companyName}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              <StatusBadge status={company.verificationStatus} />
+              <StatusBadge status={company.verificationStatus} tx={tx} />
               {company.town && <span>📍 {company.town}</span>}
               <span>· {company._count.bookings} jobs completed</span>
             </div>
           </div>
         </div>
         <div className="mt-3">
-          <ReliabilityBadges r={reliability} role="COMPANY" />
+          <ReliabilityBadges r={reliability} role="COMPANY" tx={tx} />
         </div>
         {company.about && <p className="mt-4 whitespace-pre-line text-slate-700">{company.about}</p>}
       </div>
 
-      <ReviewList summary={summary} />
+      <ReviewList summary={summary} tx={tx} />
 
       {company.jobs.length > 0 && (
         <section className="card p-5">
-          <h2 className="h2">Open jobs</h2>
+          <h2 className="h2">{tx("Open jobs")}</h2>
           <ul className="mt-3 divide-y divide-slate-100">
             {company.jobs.map((j) => (
               <li key={j.id}>

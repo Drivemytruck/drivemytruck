@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -75,6 +76,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
   ];
 
   const firstName = driver.fullName.split(" ")[0];
+  const { tx } = await getTx();
   const today = await db.availability.findUnique({ where: { driverId_date: { driverId: driver.id, date: todayDate() } } });
   const availableToday = !!today;
   const profileIncomplete = !driver.licenceClasses.length;
@@ -89,16 +91,16 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
   return (
     <div className="page space-y-5">
       <div>
-        <h1 className="h1">Hi {firstName} 👋</h1>
-        <p className="muted">Here are jobs near {driver.town ?? driver.postcode ?? "you"}.</p>
+        <h1 className="h1">{tx("Hi {name} 👋", { name: firstName })}</h1>
+        <p className="muted">{tx("Here are jobs near {place}.", { place: driver.town ?? driver.postcode ?? tx("you") })}</p>
       </div>
 
       {profileIncomplete && (
         <div className="card border-amber-200 bg-amber-50 p-4 text-sm">
-          <p className="font-semibold text-amber-900">Finish your profile to see jobs</p>
-          <p className="mt-1 text-amber-800">Add your licence class, rate and documents so companies can book you.</p>
+          <p className="font-semibold text-amber-900">{tx("Finish your profile to see jobs")}</p>
+          <p className="mt-1 text-amber-800">{tx("Add your licence class, rate and documents so companies can book you.")}</p>
           <Link href="/driver/profile" className="btn-navy btn-sm mt-3">
-            Complete profile
+            {tx("Complete profile")}
           </Link>
         </div>
       )}
@@ -111,9 +113,9 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
         >
           <span className="flex items-center gap-2">
             <span className={`h-3 w-3 rounded-full ${availableToday ? "bg-emerald-500" : "bg-slate-300"}`} />
-            {availableToday ? `Available today · ${windowLabel(today!)}` : "Not available today"}
+            {availableToday ? `${tx("Available today")} · ${tx(windowLabel(today!))}` : tx("Not available today")}
           </span>
-          <span className="text-xs font-medium underline">{availableToday ? "Turn off" : "Turn on"}</span>
+          <span className="text-xs font-medium underline">{availableToday ? tx("Turn off") : tx("Turn on")}</span>
         </button>
       </form>
 
@@ -125,7 +127,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
               href={qs({ type: t.v, when: t.v === "perm" ? "all" : when })}
               className={`rounded-lg py-2 text-center ${type === t.v ? "bg-brand-500 text-white" : "text-slate-600"}`}
             >
-              {t.l}
+              {tx(t.l)}
             </Link>
           ))}
         </div>
@@ -137,7 +139,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
               href={qs({ when: w.v })}
               className={`chip shrink-0 px-4 py-2 text-sm ${when === w.v ? "bg-navy-900 text-white" : "border border-slate-300 bg-white text-slate-700"}`}
             >
-              {w.l}
+              {tx(w.l)}
             </Link>
           ))}
         </div>
@@ -148,7 +150,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
               href={qs({ class: undefined })}
               className={`chip shrink-0 px-3 py-1.5 ${!sp.class ? "bg-brand-500 text-white" : "border border-slate-300 bg-white text-slate-700"}`}
             >
-              All classes
+              {tx("All classes")}
             </Link>
             {LICENCE_CLASSES.filter((c) => allowed.includes(c.value)).map((c) => (
               <Link
@@ -165,10 +167,10 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
 
       <div className="grid grid-cols-2 rounded-xl border border-slate-300 bg-white p-1 text-sm font-semibold">
         <Link href={qs({ view: undefined })} className={`rounded-lg py-2 text-center ${view === "list" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
-          ☰ List
+          ☰ {tx("List")}
         </Link>
         <Link href={qs({ view: "map" })} className={`rounded-lg py-2 text-center ${view === "map" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
-          🗺️ Map
+          🗺️ {tx("Map")}
         </Link>
       </div>
 
@@ -183,17 +185,17 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
                 id: job.id,
                 lat: job.lat!,
                 lng: job.lng!,
-                price: payShort(job.payAmount, job.payType) + (job.kind === "PERMANENT" ? " · Perm" : ""),
-                title: `${job.licenceClass === "C+E" ? "Class 1" : job.licenceClass === "C" ? "Class 2" : "7.5t"} driver`,
+                price: payShort(job.payAmount, job.payType) + (job.kind === "PERMANENT" ? ` · ${tx("Perm")}` : ""),
+                title: tx("{class} driver", { class: job.licenceClass === "C+E" ? "Class 1" : job.licenceClass === "C" ? "Class 2" : "7.5t" }),
                 company: job.company.companyName,
-                when: job.kind === "PERMANENT" ? `Permanent · ${job.schedule ?? ""}` : `${relativeDay(job.startAt)}, ${timeOnly(job.startAt)}`,
+                when: job.kind === "PERMANENT" ? `${tx("Permanent")} · ${job.schedule ?? ""}` : `${tx(relativeDay(job.startAt))}, ${timeOnly(job.startAt)}`,
                 place: job.town ?? job.postcode,
                 distance,
                 badge: job.applications[0]?.status,
               }))}
           />
           <p className="text-xs text-slate-500">
-            The circle shows your {driver.travelRadiusMiles}-mile travel area. Red pins are open jobs; dark blue are ones you&apos;ve responded to.
+            {tx("The circle shows your {n}-mile travel area. Red pins are open jobs; dark blue are ones you've responded to.", { n: driver.travelRadiusMiles })}
           </p>
         </div>
       ) : withDistance.length ? (
@@ -210,21 +212,25 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
                 distance,
                 badge: job.applications[0]?.status,
               }}
+              tx={tx}
             />
           ))}
         </div>
       ) : (
-        <Empty title="No matching jobs right now">
+        <Empty title={tx("No matching jobs right now")}>
           {!showAnyDistance && (
             <>
-              We only show jobs within your {driver.travelRadiusMiles}-mile radius.{" "}
+              {tx("We only show jobs within your {n}-mile radius.", { n: driver.travelRadiusMiles })}{" "}
               <Link href={qs({ any: "1" })} className="font-semibold text-brand-600 underline">
-                Show jobs further away
+                {tx("Show jobs further away")}
               </Link>
               <br />
             </>
           )}
-          Turn on “Available today” and keep your <Link href="/driver/availability" className="underline">availability</Link> up to date so companies can invite you.
+          {tx("Turn on “Available today” and keep your availability up to date so companies can invite you.")}{" "}
+          <Link href="/driver/availability" className="underline">
+            {tx("Update availability")}
+          </Link>
         </Empty>
       )}
     </div>

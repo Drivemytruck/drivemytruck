@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTx } from "@/lib/i18n";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
@@ -11,6 +12,7 @@ import { daysLeft, isLive } from "@/lib/jobs";
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function CompanyHome() {
+  const { tx } = await getTx();
   const { company } = await requireCompany();
   const now = new Date();
   const [jobs, bookedThisMonth, availableToday] = await Promise.all([
@@ -36,32 +38,32 @@ export default async function CompanyHome() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="h1">Welcome back, {company.companyName}</h1>
-          <p className="muted">Find drivers. Keep moving.</p>
+          <p className="muted">{tx("Find drivers. Keep moving.")}</p>
         </div>
         <Link href="/company/jobs/new" className="btn-primary">
-          + Post a job
+          + {tx("Post a job")}
         </Link>
       </div>
 
       {!company.phone && (
         <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">Complete your company profile</p>
-          <p className="mt-1">Drivers are more likely to accept work from companies with a full, verified profile.</p>
+          <p className="font-semibold">{tx("Complete your company profile")}</p>
+          <p className="mt-1">{tx("Drivers are more likely to accept work from companies with a full, verified profile.")}</p>
           <Link href="/company/profile" className="btn-navy btn-sm mt-3">
-            Complete profile
+            {tx("Complete profile")}
           </Link>
         </div>
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Open jobs" value={open.length} />
-        <Stat label="Drivers available today" value={availableToday} />
-        <Stat label="Booked this month" value={bookedThisMonth} />
+        <Stat label={tx("Open jobs")} value={open.length} />
+        <Stat label={tx("Drivers available today")} value={availableToday} />
+        <Stat label={tx("Booked this month")} value={bookedThisMonth} />
       </div>
 
       {needsAction.length > 0 && (
         <section className="space-y-2">
-          <h2 className="h2">⭐ Mark as done & review</h2>
+          <h2 className="h2">⭐ {tx("Mark as done & review")}</h2>
           {needsAction.map((j) => (
             <Link key={j.id} href={`/bookings/${j.booking!.id}`} className="card flex items-center justify-between p-4 hover:border-navy-700">
               <span>
@@ -70,14 +72,14 @@ export default async function CompanyHome() {
                   {licenceLabel(j.licenceClass)} · {dateTime(j.startAt)}
                 </span>
               </span>
-              <span className="btn-navy btn-sm">Complete</span>
+              <span className="btn-navy btn-sm">{tx("Complete")}</span>
             </Link>
           ))}
         </section>
       )}
 
       <section className="space-y-2">
-        <h2 className="h2">Your jobs</h2>
+        <h2 className="h2">{tx("Your jobs")}</h2>
         {jobs.length ? (
           jobs.map((j) => (
             <Link key={j.id} href={`/company/jobs/${j.id}`} className="card flex items-center justify-between gap-3 p-4 hover:border-navy-700">
@@ -87,7 +89,7 @@ export default async function CompanyHome() {
                   {licenceLabel(j.licenceClass)} · {j.town ?? j.postcode}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {j.kind === "PERMANENT" ? `Permanent · ${j.schedule ?? ""}` : dateTime(j.startAt)}
+                  {j.kind === "PERMANENT" ? `${tx("Permanent")} · ${j.schedule ?? ""}` : dateTime(j.startAt)}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-2">
                   {j.kind === "PERMANENT" && j.status === "OPEN" ? (
@@ -96,12 +98,12 @@ export default async function CompanyHome() {
                         Live · {daysLeft(j.expiresAt)}d left
                       </span>
                     ) : (
-                      <span className="chip bg-slate-200 text-slate-700">Expired — renew</span>
+                      <span className="chip bg-slate-200 text-slate-700">{tx("Expired — renew")}</span>
                     )
                   ) : j.kind === "PERMANENT" && j.status === "FILLED" ? (
-                    <span className="chip bg-emerald-50 text-emerald-700">Hired</span>
+                    <span className="chip bg-emerald-50 text-emerald-700">{tx("Hired")}</span>
                   ) : (
-                    <StatusBadge status={j.status} />
+                    <StatusBadge status={j.status} tx={tx} />
                   )}
                   {j.status === "OPEN" && j._count.applications > 0 && (
                     <span className="chip bg-brand-500 text-white">
@@ -115,10 +117,10 @@ export default async function CompanyHome() {
             </Link>
           ))
         ) : (
-          <Empty title="No jobs yet">
+          <Empty title={tx("No jobs yet")}>
             Post your first job — it takes under a minute.{" "}
             <Link href="/company/jobs/new" className="font-semibold text-brand-600 underline">
-              Post a job
+              {tx("Post a job")}
             </Link>
           </Empty>
         )}

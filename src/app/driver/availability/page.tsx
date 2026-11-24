@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTx } from "@/lib/i18n";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
 import { AvailabilityEditor, type DayRow } from "@/components/AvailabilityEditor";
@@ -17,7 +18,8 @@ export default async function AvailabilityPage() {
     where: { driverId: driver.id, date: { gte: start, lt: new Date(start.getTime() + DAYS * 86400000) } },
   });
   const byDate = new Map(existing.map((a) => [a.date.toISOString().slice(0, 10), a]));
-  const fmt = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+  const { lang, tx } = await getTx();
+  const fmt = new Intl.DateTimeFormat(lang === "pl" ? "pl-PL" : "en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
   const days: DayRow[] = Array.from({ length: DAYS }, (_, i) => {
     const d = new Date(start.getTime() + i * 86400000);
@@ -40,13 +42,12 @@ export default async function AvailabilityPage() {
   return (
     <div className="page max-w-2xl space-y-5">
       <div>
-        <h1 className="h1">My availability</h1>
+        <h1 className="h1">{tx("My availability")}</h1>
         <p className="muted">
-          Tick the days you can work over the next 4 weeks, with your hours and rate. Companies looking for a driver on those days will
-          find you.
+          {tx("Tick the days you can work over the next 4 weeks, with your hours and rate. Companies looking for a driver on those days will find you.")}
         </p>
       </div>
-      <AvailabilityEditor action={saveAvailability} initialDays={days} radius={driver.travelRadiusMiles} postcode={driver.postcode ?? ""} />
+      <AvailabilityEditor action={saveAvailability} initialDays={days} radius={driver.travelRadiusMiles} postcode={driver.postcode ?? ""} lang={lang} />
     </div>
   );
 }

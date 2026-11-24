@@ -10,6 +10,9 @@ import { EMPLOYMENT_TYPES, LICENCE_CLASSES, PERM_LISTING_DAYS, canDriveClass } f
 import { londonToDate } from "@/lib/format";
 import { bookDriver, BookingError } from "@/lib/bookings";
 import { contactDetailsError } from "@/lib/contact-guard";
+import { getTx } from "@/lib/i18n";
+
+const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
 import type { ActionState } from "@/components/forms";
 
 const opt = (s: z.ZodString) => s.optional().transform((v) => (v ? v : null));
@@ -27,16 +30,16 @@ const companySchema = z.object({
 export async function updateCompanyProfile(_: ActionState, fd: FormData): Promise<ActionState> {
   const { company } = await requireCompany();
   const parsed = companySchema.safeParse(Object.fromEntries(fd));
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please check the form.") };
   const { postcode, ...rest } = parsed.data;
   const contactErr = contactDetailsError(rest.about);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   const geo = postcode.toUpperCase().replace(/\s/g, "") === (company.postcode ?? "").replace(/\s/g, "")
     ? { postcode: company.postcode!, town: company.town, lat: company.lat, lng: company.lng }
     : await geocodePostcode(postcode);
   await db.companyProfile.update({ where: { id: company.id }, data: { ...rest, ...geo } });
   revalidatePath("/company", "layout");
-  return { ok: "Company profile saved." };
+  return { ok: await T("Company profile saved.") };
 }
 
 const jobBase = {
@@ -74,12 +77,12 @@ export async function createJob(_: ActionState, fd: FormData): Promise<ActionSta
 
   if (kind === "SHIFT") {
     const parsed = shiftSchema.safeParse(raw);
-    if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+    if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please check the form.") };
     const d = parsed.data;
     const contactErr = contactDetailsError(d.description, d.requirements);
-    if (contactErr) return { error: contactErr };
+    if (contactErr) return { error: await T(contactErr) };
     const startAt = londonToDate(d.date, d.time);
-    if (startAt.getTime() < Date.now() - 3600000) return { error: "The start time is in the past." };
+    if (startAt.getTime() < Date.now() - 3600000) return { error: await T("The start time is in the past.") };
     const geo = await geocodePostcode(d.postcode);
     const job = await db.job.create({
       data: {
@@ -102,10 +105,10 @@ export async function createJob(_: ActionState, fd: FormData): Promise<ActionSta
   }
 
   const parsed = permSchema.safeParse(raw);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!parsed.success) return { error: await T(parsed.error.issues[0]?.message ?? "Please check the form.") };
   const d = parsed.data;
   const contactErr = contactDetailsError(d.description, d.requirements, d.benefits, d.schedule);
-  if (contactErr) return { error: contactErr };
+  if (contactErr) return { error: await T(contactErr) };
   const asap = d.startAsap === "on" || !d.date;
   const startAt = asap ? new Date() : londonToDate(d.date!, "08:00");
   const geo = await geocodePostcode(d.postcode);
@@ -152,9 +155,9 @@ export async function renewJob(fd: FormData) {
 export async function markHired(_: ActionState, fd: FormData): Promise<ActionState> {
   const { job } = await ownJob(String(fd.get("jobId")));
   const driverId = String(fd.get("driverId"));
-  if (job.kind !== "PERMANENT" || job.status !== "OPEN") return { error: "This advert is no longer open." };
+  if (job.kind !== "PERMANENT" || job.status !== "OPEN") return { error: await T("This advert is no longer open.") };
   const app = await db.application.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId } } });
-  if (!app || !["APPLIED", "INVITED"].includes(app.status)) return { error: "This driver hasn't responded to the advert." };
+  if (!app || !["APPLIED", "INVITED"].includes(app.status)) return { error: await T("This driver hasn't responded to the advert.") };
   await db.$transaction([
     db.job.update({ where: { id: job.id }, data: { status: "FILLED" } }),
     db.application.update({ where: { id: app.id }, data: { status: "ACCEPTED" } }),
@@ -162,7 +165,7 @@ export async function markHired(_: ActionState, fd: FormData): Promise<ActionSta
     db.driverProfile.update({ where: { id: driverId }, data: { openToPermanent: false, permanentUntil: null } }),
   ]);
   revalidatePath(`/company/jobs/${job.id}`);
-  return { ok: "Marked as hired 🎉 The advert has been closed." };
+  return { ok: await T("Marked as hired 🎉 The advert has been closed.") };
 }
 
 async function ownJob(jobId: string) {
@@ -191,7 +194,7 @@ export async function acceptApplicant(_: ActionState, fd: FormData): Promise<Act
     revalidatePath(`/company/jobs/${job.id}`);
     redirect(`/bookings/${booking.id}?new=1`);
   } catch (e) {
-    if (e instanceof BookingError) return { error: e.message };
+    if (e instanceof BookingError) return { error: await T(e.message) };
     throw e;
   }
 }
@@ -199,17 +202,17 @@ export async function acceptApplicant(_: ActionState, fd: FormData): Promise<Act
 export async function inviteDriver(_: ActionState, fd: FormData): Promise<ActionState> {
   const { job } = await ownJob(String(fd.get("jobId")));
   const driverId = String(fd.get("driverId"));
-  if (job.status !== "OPEN") return { error: "That job is no longer open." };
+  if (job.status !== "OPEN") return { error: await T("That job is no longer open.") };
   const driver = await db.driverProfile.findUnique({ where: { id: driverId } });
-  if (!driver) return { error: "Driver not found." };
-  if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: "This driver's licence doesn't cover that job." };
+  if (!driver) return { error: await T("Driver not found.") };
+  if (!canDriveClass(driver.licenceClasses, job.licenceClass)) return { error: await T("This driver's licence doesn't cover that job.") };
   const existing = await db.application.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId } } });
-  if (existing && ["APPLIED", "ACCEPTED"].includes(existing.status)) return { ok: "This driver has already applied — you can book them on the job page." };
+  if (existing && ["APPLIED", "ACCEPTED"].includes(existing.status)) return { ok: await T("This driver has already applied — you can book them on the job page.") };
   await db.application.upsert({
     where: { jobId_driverId: { jobId: job.id, driverId } },
     create: { jobId: job.id, driverId, status: "INVITED" },
     update: { status: "INVITED" },
   });
   revalidatePath(`/drivers/${driverId}`);
-  return { ok: "Invite sent. The driver will see it under “My work”." };
+  return { ok: await T("Invite sent. The driver will see it under “My work”.") };
 }
