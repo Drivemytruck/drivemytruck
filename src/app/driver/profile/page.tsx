@@ -5,7 +5,7 @@ import { requireDriver } from "@/lib/session";
 import { LICENCE_CLASSES, SKILLS } from "@/lib/constants";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { CheckboxGroup, Field, StatusBadge } from "@/components/ui";
-import { savePermanentPrefs, updateDriverProfile } from "../actions";
+import { saveJobAlerts, savePermanentPrefs, updateDriverProfile } from "../actions";
 import { EMPLOYMENT_TYPES } from "@/lib/constants";
 import { isSeekingPermanent } from "@/lib/jobs";
 import { dateOnly } from "@/lib/format";
@@ -57,6 +57,22 @@ export default async function DriverProfilePage({ searchParams }: { searchParams
           <span aria-hidden>›</span>
         </Link>
       </div>
+
+      <section className="card p-5 sm:p-6">
+        <h2 className="h2">🔔 {tx("Job alerts")}</h2>
+        <p className="muted mt-1">
+          {tx("We'll email you straight away when a new job fits a day you're available (max 5 a day), and send a daily summary of other new jobs within your travel distance.")}
+        </p>
+        <ActionForm action={saveJobAlerts} className="mt-3 space-y-3">
+          <label className="flex items-center gap-3 font-semibold text-navy-900">
+            <input type="checkbox" name="jobAlertsEnabled" defaultChecked={driver.jobAlertsEnabled} className="h-5 w-5 accent-brand-500" />
+            {tx("Email me about new jobs near me")}
+          </label>
+          <SubmitButton className="btn-outline btn-sm" pendingText={tx("Saving…")}>
+            {tx("Save")}
+          </SubmitButton>
+        </ActionForm>
+      </section>
 
       <section className="card p-5 sm:p-6">
         <h2 className="h2">🤝 {tx("Looking for permanent work?")}</h2>

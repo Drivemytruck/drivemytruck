@@ -3,7 +3,7 @@ import { brandedEmail, sendEmail, siteUrl } from "@/lib/email";
 import { PERM_LISTING_DAYS } from "@/lib/constants";
 import { licenceLabel } from "@/lib/constants";
 import { encrypt, isEncrypted } from "@/lib/crypto";
-import { sendAvailabilityDigests } from "@/lib/alerts";
+import { sendAvailabilityDigests, sendJobDigestsToDrivers } from "@/lib/alerts";
 
 /**
  * Runs once a day (Vercel Cron, see vercel.json):
@@ -75,6 +75,7 @@ export async function GET(req: Request) {
   }
 
   const digests = await sendAvailabilityDigests();
+  const driverDigests = await sendJobDigestsToDrivers();
 
-  return Response.json({ ok: true, jobsReminded, driversReminded, encrypted, digests });
+  return Response.json({ ok: true, jobsReminded, driversReminded, encrypted, digests, driverDigests });
 }

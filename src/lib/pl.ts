@@ -523,4 +523,22 @@ export const PL: Record<string, string> = {
   miles: "mil",
   driver: "kierowca",
   "{n} driver available near you": "Wolny kierowca w Twojej okolicy: {n}",
+
+  // Driver job alerts
+  "Job alerts": "Powiadomienia o zleceniach",
+  "We'll email you straight away when a new job fits a day you're available (max 5 a day), and send a daily summary of other new jobs within your travel distance.":
+    "Napiszemy od razu, gdy nowe zlecenie pasuje do dnia, w którym jesteś dostępny (max 5 dziennie), a raz dziennie wyślemy podsumowanie innych nowych zleceń w Twoim zasięgu.",
+  "Email me about new jobs near me": "Wysyłaj mi maile o nowych zleceniach w okolicy",
+  "Saved — we'll email you about new jobs near you.": "Zapisano — będziemy pisać o nowych zleceniach w okolicy.",
+  "Saved — job emails are off.": "Zapisano — maile o zleceniach są wyłączone.",
+  "Hi {name},": "Cześć {name},",
+  "A new permanent role near you matches what you're looking for:": "Nowa praca na stałe w Twojej okolicy pasuje do tego, czego szukasz:",
+  "A new job near you matches a day you said you're available:": "Nowe zlecenie w Twojej okolicy pasuje do dnia, w którym jesteś dostępny:",
+  "View job": "Zobacz zlecenie",
+  "New job near you: {job}": "Nowe zlecenie w okolicy: {job}",
+  "New jobs near you:": "Nowe zlecenia w Twojej okolicy:",
+  "Turn these emails off any time in your profile.": "Możesz wyłączyć te maile w swoim profilu.",
+  "See jobs near me": "Zobacz zlecenia w okolicy",
+  "{n} new job near you": "Nowe zlecenie w okolicy: {n}",
+  "{n} new jobs near you": "Nowe zlecenia w okolicy: {n}",
 };

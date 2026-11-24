@@ -237,3 +237,11 @@ export async function savePermanentPrefs(_: ActionState, fd: FormData): Promise<
       : await T("Saved — you're not shown as looking for permanent work."),
   };
 }
+
+export async function saveJobAlerts(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { driver } = await requireDriver();
+  const on = fd.get("jobAlertsEnabled") === "on";
+  await db.driverProfile.update({ where: { id: driver.id }, data: { jobAlertsEnabled: on } });
+  revalidatePath("/driver/profile");
+  return { ok: await T(on ? "Saved — we'll email you about new jobs near you." : "Saved — job emails are off.") };
+}

@@ -163,6 +163,8 @@ model DriverProfile {
   permNote              String?
   permReminderSentAt    DateTime?
   availabilityUpdatedAt DateTime? // last time the driver added new available days
+  jobAlertsEnabled      Boolean            @default(true) // emails about new jobs nearby
+  lastJobDigestAt       DateTime?
   verificationStatus    VerificationStatus @default(PENDING)
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
@@ -344,4 +346,15 @@ model JobMatchAlert {
   createdAt DateTime @default(now())
 
   @@unique([jobId, driverId])
+}
+
+/// One email per (job, driver) when a new job matches the driver.
+model DriverJobAlert {
+  id        String   @id @default(cuid())
+  jobId     String
+  driverId  String
+  createdAt DateTime @default(now())
+
+  @@unique([jobId, driverId])
+  @@index([driverId, createdAt])
 }

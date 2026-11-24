@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyDriversOfNewJob } from "@/lib/alerts";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
@@ -101,6 +103,8 @@ export async function createJob(_: ActionState, fd: FormData): Promise<ActionSta
       },
     });
     revalidatePath("/company");
+    // Email matching drivers after the response is sent, so posting stays fast.
+    after(() => notifyDriversOfNewJob(job.id).catch((e) => console.error("[alerts]", e)));
     redirect(`/company/jobs/${job.id}?posted=1`);
   }
 
@@ -133,6 +137,8 @@ export async function createJob(_: ActionState, fd: FormData): Promise<ActionSta
     },
   });
   revalidatePath("/company");
+  // Email matching drivers after the response is sent, so posting stays fast.
+  after(() => notifyDriversOfNewJob(job.id).catch((e) => console.error("[alerts]", e)));
   redirect(`/company/jobs/${job.id}?posted=1`);
 }
 

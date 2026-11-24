@@ -49,6 +49,35 @@ export function siteUrl() {
   return (process.env.SITE_URL || "https://drivemytruck.co.uk").replace(/\/$/, "");
 }
 
+type Message = { to: string; subject: string; html: string; text: string };
+
+/** Many emails at once via Resend's batch API (up to 100 per request). Returns how many were accepted. */
+export async function sendEmailBatch(messages: Message[]) {
+  if (!messages.length) return 0;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    console.warn(`[email] RESEND_API_KEY not set — ${messages.length} batch emails not sent: ${messages[0].subject}`);
+    return 0;
+  }
+  let ok = 0;
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100).map((m) => ({ from: senderAddress(), reply_to: SUPPORT_EMAIL, ...m, to: [m.to] }));
+    try {
+      const res = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(chunk),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) ok += chunk.length;
+      else console.error(`[email] Resend batch error ${res.status}: ${await res.text()}`);
+    } catch (e) {
+      console.error("[email] batch send failed", e);
+    }
+  }
+  return ok;
+}
+
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** Simple branded email: a few paragraphs and one red button. */
