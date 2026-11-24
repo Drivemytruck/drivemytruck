@@ -28,9 +28,9 @@ const items: Record<Role, Item[]> = {
   ],
 };
 
-export function BottomNav({ role }: { role: Role }) {
+export function BottomNav({ role, labels }: { role: Role; labels?: string[] }) {
   const path = usePathname();
-  const list = items[role];
+  const list = labels ? items[role].map((i, n) => ({ ...i, label: labels[n] ?? i.label })) : items[role];
   const active = (href: string) =>
     path === href || (!["/driver", "/company", "/admin"].includes(href) && path.startsWith(href));
   return (

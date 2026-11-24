@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/session";
 import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
 import { TERMS_VERSION } from "@/lib/constants";
+import { tr } from "@/lib/i18n";
 import type { ActionState } from "@/components/forms";
 
 const registerSchema = z.object({
@@ -20,11 +21,21 @@ const registerSchema = z.object({
 
 export async function register(_: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message };
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path[0];
+    const pl: Record<string, string> = {
+      name: "Wpisz imię i nazwisko albo nazwę firmy.",
+      email: "Wpisz poprawny adres e-mail.",
+      password: "Hasło musi mieć minimum 8 znaków.",
+      postcode: "Wpisz poprawny brytyjski kod pocztowy (np. B1 1AA).",
+      terms: "Zaakceptuj regulamin, żeby kontynuować.",
+    };
+    return { error: await tr(parsed.error.issues[0]?.message ?? "Please check the form.", pl[String(field)] ?? "Sprawdź formularz.") };
+  }
   const { role, name, email, password, postcode } = parsed.data;
 
   if (await db.user.findUnique({ where: { email } })) {
-    return { error: "An account with this email already exists. Try logging in." };
+    return { error: await tr("An account with this email already exists. Try logging in.", "Konto z tym adresem e-mail już istnieje. Spróbuj się zalogować.") };
   }
 
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -65,14 +76,25 @@ export async function login(_: ActionState, formData: FormData): Promise<ActionS
   const since = new Date(Date.now() - LOCK_MINUTES * 60000);
   const recentFails = await db.failedLogin.count({ where: { email, createdAt: { gte: since } } });
   if (recentFails >= MAX_FAILED) {
-    return { error: `Too many attempts. Please wait ${LOCK_MINUTES} minutes or reset your password.` };
+    return {
+      error: await tr(
+        `Too many attempts. Please wait ${LOCK_MINUTES} minutes or reset your password.`,
+        `Za dużo prób. Odczekaj ${LOCK_MINUTES} minut albo zresetuj hasło.`,
+      ),
+    };
   }
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     await db.failedLogin.create({ data: { email } });
-    return { error: "Wrong email or password." };
+    return { error: await tr("Wrong email or password.", "Nieprawidłowy e-mail lub hasło.") };
   }
-  if (user.suspended) return { error: "This account has been suspended. Please contact hello@drivemytruck.co.uk." };
+  if (user.suspended)
+    return {
+      error: await tr(
+        "This account has been suspended. Please contact hello@drivemytruck.co.uk.",
+        "To konto zostało zablokowane. Napisz do nas: hello@drivemytruck.co.uk.",
+      ),
+    };
   await db.failedLogin.deleteMany({ where: { email } });
   await createSession(user.id, user.role, user.sessionVersion);
   const next = String(formData.get("next") ?? "");

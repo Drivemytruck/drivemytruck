@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { createSession } from "@/lib/session";
 import { sendEmail, siteUrl } from "@/lib/email";
+import { tr } from "@/lib/i18n";
 import type { ActionState } from "@/components/forms";
 
 const TOKEN_TTL_MIN = 60;
@@ -14,9 +15,12 @@ const hash = (t: string) => createHash("sha256").update(t).digest("hex");
 export async function requestPasswordReset(_: ActionState, fd: FormData): Promise<ActionState> {
   const email = String(fd.get("email") ?? "").trim().toLowerCase();
   const done: ActionState = {
-    ok: "If an account exists for that email, we've sent a link to reset your password. Check your inbox (and spam).",
+    ok: await tr(
+      "If an account exists for that email, we've sent a link to reset your password. Check your inbox (and spam).",
+      "Jeśli konto z tym adresem istnieje, wysłaliśmy link do zmiany hasła. Sprawdź skrzynkę (i spam).",
+    ),
   };
-  if (!email.includes("@")) return { error: "Please enter your email." };
+  if (!email.includes("@")) return { error: await tr("Please enter your email.", "Wpisz swój e-mail.") };
 
   const user = await db.user.findUnique({ where: { email } });
   if (!user || user.suspended) return done; // don't reveal whether the account exists
@@ -47,12 +51,12 @@ export async function requestPasswordReset(_: ActionState, fd: FormData): Promis
 export async function resetPassword(_: ActionState, fd: FormData): Promise<ActionState> {
   const token = String(fd.get("token") ?? "");
   const password = String(fd.get("password") ?? "");
-  if (password.length < 8) return { error: "Password must be at least 8 characters." };
-  if (password !== String(fd.get("confirm") ?? "")) return { error: "The two passwords don't match." };
+  if (password.length < 8) return { error: await tr("Password must be at least 8 characters.", "Hasło musi mieć minimum 8 znaków.") };
+  if (password !== String(fd.get("confirm") ?? "")) return { error: await tr("The two passwords don't match.", "Hasła nie są takie same.") };
 
   const row = await db.passwordResetToken.findUnique({ where: { tokenHash: hash(token) }, include: { user: true } });
   if (!row || row.usedAt || row.expiresAt < new Date() || row.user.suspended) {
-    return { error: "This link has expired or was already used. Please request a new one." };
+    return { error: await tr("This link has expired or was already used. Please request a new one.", "Ten link wygasł albo został już użyty. Poproś o nowy.") };
   }
   const passwordHash = await bcrypt.hash(password, 12);
   await db.$transaction([
