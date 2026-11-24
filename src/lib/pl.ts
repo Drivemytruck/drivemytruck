@@ -488,4 +488,39 @@ export const PL: Record<string, string> = {
   "Please upload a JPG, PNG or WebP image.": "Wgraj zdjęcie JPG, PNG albo WebP.",
   "Sorry, we couldn't read that image. Please try a different photo.": "Nie udało się odczytać zdjęcia. Spróbuj innego.",
   "{class} job": "Zlecenie {class}",
+
+  // Availability for companies
+  "Pick a day to see who's free near {place}, then open a profile to invite them.":
+    "Wybierz dzień, żeby zobaczyć, kto jest wolny w okolicy ({place}), i otwórz profil, żeby zaprosić.",
+  "Any day": "Dowolny dzień",
+  drivers: "kierowców",
+  "Next available": "Najbliżej dostępny",
+  "Open profile & invite →": "Otwórz profil i zaproś →",
+  "Green pins are verified drivers. Locations are approximate to protect drivers' privacy.":
+    "Zielone pinezki to zweryfikowani kierowcy. Lokalizacje są przybliżone, żeby chronić prywatność kierowców.",
+  "Drivers available this week": "Wolni kierowcy w tym tygodniu",
+  "See all": "Zobacz wszystkich",
+  "Driver availability alerts": "Powiadomienia o wolnych kierowcach",
+  "Get an email when a driver near you adds availability — instantly if it matches one of your open jobs, otherwise in a daily summary.":
+    "Dostaniesz maila, gdy kierowca w okolicy doda dostępność — od razu, jeśli pasuje do Twojego otwartego zlecenia, a pozostałe w codziennym podsumowaniu.",
+  "Email me about available drivers": "Wysyłaj mi maile o wolnych kierowcach",
+  "Within (miles) of my depot": "W promieniu (mile) od mojej bazy",
+  "Driver classes (leave empty for all)": "Kategorie kierowców (puste = wszystkie)",
+  "Save alerts": "Zapisz powiadomienia",
+  "Choose a radius between 5 and 300 miles.": "Wybierz promień od 5 do 300 mil.",
+  "Saved — we'll email you when drivers near you become available.": "Zapisano — napiszemy, gdy kierowcy w okolicy będą wolni.",
+  "Saved — availability emails are off.": "Zapisano — maile o dostępności są wyłączone.",
+  // Alert emails
+  "Good news — a driver is available for your job.": "Dobra wiadomość — jest kierowca na Twoje zlecenie.",
+  "{name} is available on {day} ({hours}{rate}) and can drive {class}.": "{name} jest dostępny w {day} ({hours}{rate}) i ma kategorię {class}.",
+  "Your job: {class} · {place}.": "Twoje zlecenie: {class} · {place}.",
+  "View driver & invite": "Zobacz kierowcę i zaproś",
+  "{name} is available for your job": "{name} jest dostępny na Twoje zlecenie",
+  "New drivers available near you:": "Nowi wolni kierowcy w Twojej okolicy:",
+  "You can change or turn off these emails in your company profile.": "Możesz zmienić albo wyłączyć te maile w profilu firmy.",
+  "See available drivers": "Zobacz wolnych kierowców",
+  "{n} drivers available near you": "Wolni kierowcy w Twojej okolicy: {n}",
+  miles: "mil",
+  driver: "kierowca",
+  "{n} driver available near you": "Wolny kierowca w Twojej okolicy: {n}",
 };

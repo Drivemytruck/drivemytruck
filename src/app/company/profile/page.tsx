@@ -4,7 +4,9 @@ import type { Metadata } from "next";
 import { requireCompany } from "@/lib/session";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Field, StatusBadge } from "@/components/ui";
-import { updateCompanyProfile } from "../actions";
+import { saveAlertSettings, updateCompanyProfile } from "../actions";
+import { LICENCE_CLASSES } from "@/lib/constants";
+import { CheckboxGroup } from "@/components/ui";
 import { PhotoUpload } from "@/components/PhotoUpload";
 import { avatarUrl } from "@/lib/avatar";
 
@@ -63,6 +65,28 @@ export default async function CompanyProfilePage({ searchParams }: { searchParam
           <SubmitButton pendingText={tx("Saving…")}>{tx("Save")}</SubmitButton>
         </ActionForm>
       </div>
+      <section className="card p-5 sm:p-6">
+        <h2 className="h2">🔔 {tx("Driver availability alerts")}</h2>
+        <p className="muted mt-1">
+          {tx("Get an email when a driver near you adds availability — instantly if it matches one of your open jobs, otherwise in a daily summary.")}
+        </p>
+        <ActionForm action={saveAlertSettings} className="mt-4 space-y-4">
+          <label className="flex items-center gap-3 font-semibold text-navy-900">
+            <input type="checkbox" name="alertsEnabled" defaultChecked={company.alertsEnabled} className="h-5 w-5 accent-brand-500" />
+            {tx("Email me about available drivers")}
+          </label>
+          <Field label={tx("Within (miles) of my depot")}>
+            <input className="input" type="number" name="alertRadiusMiles" min={5} max={300} defaultValue={company.alertRadiusMiles} />
+          </Field>
+          <div>
+            <span className="label">{tx("Driver classes (leave empty for all)")}</span>
+            <CheckboxGroup name="alertClasses" options={LICENCE_CLASSES} selected={company.alertClasses} />
+          </div>
+          <SubmitButton className="btn-navy w-full" pendingText={tx("Saving…")}>
+            {tx("Save alerts")}
+          </SubmitButton>
+        </ActionForm>
+      </section>
     </div>
   );
 }

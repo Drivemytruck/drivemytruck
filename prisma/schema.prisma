@@ -139,32 +139,33 @@ model PasswordResetToken {
 }
 
 model DriverProfile {
-  id                 String             @id @default(cuid())
-  userId             String             @unique
-  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName           String
-  phone              String?
-  postcode           String?
-  town               String?
-  lat                Float?
-  lng                Float?
-  travelRadiusMiles  Int                @default(25)
-  licenceClasses     String[]
-  skills             String[]
-  experienceYears    Int?
-  rateType           PayType            @default(SHIFT)
-  rateAmount         Int? // pence
-  bio                String?
-  availableToday     Boolean            @default(false)
-  openToPermanent    Boolean            @default(false)
-  permanentUntil     DateTime? // "looking for permanent work" expires after 30 days
-  permEmployment     String[] // PAYE / Self-employed / Ltd / Umbrella
-  permSchedule       String?
-  permNote           String?
-  permReminderSentAt DateTime?
-  verificationStatus VerificationStatus @default(PENDING)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName              String
+  phone                 String?
+  postcode              String?
+  town                  String?
+  lat                   Float?
+  lng                   Float?
+  travelRadiusMiles     Int                @default(25)
+  licenceClasses        String[]
+  skills                String[]
+  experienceYears       Int?
+  rateType              PayType            @default(SHIFT)
+  rateAmount            Int? // pence
+  bio                   String?
+  availableToday        Boolean            @default(false)
+  openToPermanent       Boolean            @default(false)
+  permanentUntil        DateTime? // "looking for permanent work" expires after 30 days
+  permEmployment        String[] // PAYE / Self-employed / Ltd / Umbrella
+  permSchedule          String?
+  permNote              String?
+  permReminderSentAt    DateTime?
+  availabilityUpdatedAt DateTime? // last time the driver added new available days
+  verificationStatus    VerificationStatus @default(PENDING)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
   documents    DriverDocument[]
   availability Availability[]
@@ -218,6 +219,10 @@ model CompanyProfile {
   lng                  Float?
   about                String?
   verificationStatus   VerificationStatus @default(PENDING)
+  alertsEnabled        Boolean            @default(true) // emails about drivers becoming available nearby
+  alertRadiusMiles     Int                @default(30)
+  alertClasses         String[] // empty = any class
+  lastDigestAt         DateTime?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -329,4 +334,14 @@ model AdminAudit {
 
   @@index([targetId])
   @@index([createdAt])
+}
+
+/// One email per (job, driver) when a driver's new availability matches an open job.
+model JobMatchAlert {
+  id        String   @id @default(cuid())
+  jobId     String
+  driverId  String
+  createdAt DateTime @default(now())
+
+  @@unique([jobId, driverId])
 }

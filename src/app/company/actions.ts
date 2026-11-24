@@ -216,3 +216,15 @@ export async function inviteDriver(_: ActionState, fd: FormData): Promise<Action
   revalidatePath(`/drivers/${driverId}`);
   return { ok: await T("Invite sent. The driver will see it under “My work”.") };
 }
+
+/** Email alerts about drivers becoming available nearby. */
+export async function saveAlertSettings(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { company } = await requireCompany();
+  const on = fd.get("alertsEnabled") === "on";
+  const radius = Number(fd.get("alertRadiusMiles"));
+  if (!Number.isInteger(radius) || radius < 5 || radius > 300) return { error: await T("Choose a radius between 5 and 300 miles.") };
+  const classes = fd.getAll("alertClasses").map(String).filter((c) => LICENCE_CLASSES.some((l) => l.value === c));
+  await db.companyProfile.update({ where: { id: company.id }, data: { alertsEnabled: on, alertRadiusMiles: radius, alertClasses: classes } });
+  revalidatePath("/company/profile");
+  return { ok: await T(on ? "Saved — we'll email you when drivers near you become available." : "Saved — availability emails are off.") };
+}

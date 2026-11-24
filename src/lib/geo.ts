@@ -52,3 +52,14 @@ export function distanceMiles(
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
+/**
+ * Privacy: drivers' home locations are never shown precisely to companies.
+ * Rounds to ~1 km and adds a small stable offset per driver.
+ */
+export function approxLocation(id: string, lat: number, lng: number) {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  const jitter = (n: number) => (((h >> n) & 0xff) / 255 - 0.5) * 0.012;
+  return { lat: Math.round(lat * 100) / 100 + jitter(0), lng: Math.round(lng * 100) / 100 + jitter(8) };
+}

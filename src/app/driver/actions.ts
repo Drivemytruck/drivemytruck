@@ -11,6 +11,7 @@ import { bookDriver, BookingError } from "@/lib/bookings";
 import { TIME_RE, todayDate } from "@/lib/availability";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { isLive } from "@/lib/jobs";
+import { notifyJobMatches } from "@/lib/alerts";
 import { encrypt } from "@/lib/crypto";
 import { getTx } from "@/lib/i18n";
 
@@ -69,7 +70,11 @@ export async function toggleAvailableToday() {
   const date = todayDate();
   const existing = await db.availability.findUnique({ where: { driverId_date: { driverId: driver.id, date } } });
   if (existing) await db.availability.delete({ where: { id: existing.id } });
-  else await db.availability.create({ data: { driverId: driver.id, date } });
+  else {
+    await db.availability.create({ data: { driverId: driver.id, date } });
+    await db.driverProfile.update({ where: { id: driver.id }, data: { availabilityUpdatedAt: new Date() } });
+    await notifyJobMatches(driver.id, [date]).catch((e) => console.error("[alerts]", e));
+  }
   revalidatePath("/driver");
 }
 
@@ -138,14 +143,23 @@ export async function saveAvailability(_: ActionState, fd: FormData): Promise<Ac
     });
   }
 
+  // Which days are newly added (not already in the calendar)? Those trigger alerts to companies.
+  const before = await db.availability.findMany({ where: { driverId: driver.id, date: { in: range.map((d) => new Date(`${d}T00:00:00Z`)) } }, select: { date: true } });
+  const had = new Set(before.map((b) => b.date.getTime()));
+  const newDates = entries.map((e) => e.date).filter((d) => !had.has(d.getTime()) && d.getTime() >= todayDate().getTime());
+
   const samePc = postcode.toUpperCase().replace(/\s/g, "") === (driver.postcode ?? "").replace(/\s/g, "");
   const geo = samePc ? {} : await geocodePostcode(postcode);
   await db.$transaction([
-    db.driverProfile.update({ where: { id: driver.id }, data: { travelRadiusMiles: radius, ...geo } }),
+    db.driverProfile.update({
+      where: { id: driver.id },
+      data: { travelRadiusMiles: radius, ...geo, ...(newDates.length ? { availabilityUpdatedAt: new Date() } : {}) },
+    }),
     db.availability.deleteMany({ where: { driverId: driver.id, date: { in: range.map((d) => new Date(`${d}T00:00:00Z`)) } } }),
     db.availability.createMany({ data: entries.map((e) => ({ driverId: driver.id, ...e })) }),
   ]);
   revalidatePath("/driver", "layout");
+  await notifyJobMatches(driver.id, newDates).catch((e) => console.error("[alerts]", e));
   return {
     ok: entries.length
       ? await T("Saved — you're available on {n} day(s), up to {r} miles away.", { n: entries.length, r: radius })

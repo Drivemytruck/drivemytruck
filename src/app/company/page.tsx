@@ -8,11 +8,12 @@ import { dateTime, money } from "@/lib/format";
 import { Empty, Stat, StatusBadge } from "@/components/ui";
 import { todayDate } from "@/lib/availability";
 import { daysLeft, isLive } from "@/lib/jobs";
+import { distanceMiles } from "@/lib/geo";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 export default async function CompanyHome() {
-  const { tx } = await getTx();
+  const { tx, lang } = await getTx();
   const { company } = await requireCompany();
   const now = new Date();
   const [jobs, bookedThisMonth, availableToday] = await Promise.all([
@@ -32,6 +33,22 @@ export default async function CompanyHome() {
   ]);
   const open = jobs.filter((j) => j.status === "OPEN");
   const needsAction = jobs.filter((j) => j.booking?.status === "CONFIRMED" && j.startAt < now);
+
+  // Drivers free on each of the next 7 days within the company's alert radius.
+  const weekStart = todayDate();
+  const weekRows = await db.availability.findMany({
+    where: { date: { gte: weekStart, lt: new Date(weekStart.getTime() + 7 * 86400000) }, driver: { user: { suspended: false } } },
+    select: { date: true, driver: { select: { lat: true, lng: true } } },
+  });
+  const dayFmt = new Intl.DateTimeFormat(lang === "pl" ? "pl-PL" : "en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" });
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart.getTime() + i * 86400000);
+    const n = weekRows.filter((r) => r.date.getTime() === d.getTime()).filter((r) => {
+      const dist = distanceMiles(company, r.driver);
+      return dist == null || dist <= company.alertRadiusMiles;
+    }).length;
+    return { iso: d.toISOString().slice(0, 10), label: i === 0 ? tx("Today") : dayFmt.format(d), n };
+  });
 
   return (
     <div className="page space-y-6">
@@ -57,9 +74,35 @@ export default async function CompanyHome() {
 
       <div className="grid grid-cols-3 gap-3">
         <Stat label={tx("Open jobs")} value={open.length} />
-        <Stat label={tx("Drivers available today")} value={availableToday} />
+        <Stat label={tx("Drivers available today")} value={availableToday} href={`/company/drivers?date=${weekStart.toISOString().slice(0, 10)}`} />
         <Stat label={tx("Booked this month")} value={bookedThisMonth} />
       </div>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="h2">{tx("Drivers available this week")}</h2>
+          <Link href="/company/drivers" className="text-sm font-semibold text-brand-600 underline">
+            {tx("See all")}
+          </Link>
+        </div>
+        <div className="-mx-4 overflow-x-auto px-4 pb-1">
+          <div className="flex gap-2">
+            {week.map((w) => (
+              <Link
+                key={w.iso}
+                href={`/company/drivers?date=${w.iso}`}
+                className={`flex min-w-20 shrink-0 flex-col items-center rounded-xl border px-3 py-2 text-center ${
+                  w.n ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-slate-200 bg-white text-slate-400"
+                }`}
+              >
+                <span className="text-xs">{w.label}</span>
+                <span className="text-lg font-extrabold">{w.n}</span>
+                <span className="text-[10px] opacity-80">{tx(w.n === 1 ? "driver" : "drivers")}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {needsAction.length > 0 && (
         <section className="space-y-2">
