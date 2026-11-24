@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { avatarUrl } from "@/lib/avatar";
 import { DOCUMENT_TYPES, licenceLabel } from "@/lib/constants";
+import { decrypt } from "@/lib/crypto";
 import { dateOnly, dateTime, money } from "@/lib/format";
 import { dayRateLabel, windowLabel } from "@/lib/availability";
 import { reliabilityOf } from "@/lib/reliability";
@@ -168,11 +169,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                     <span className="block font-medium text-slate-800">{m.label}</span>
                     {doc ? (
                       <span className="block text-xs text-slate-500">
-                        Ref <span className="font-mono">{doc.reference}</span>
+                        Ref <span className="font-mono">{decrypt(doc.reference)}</span>
                         {doc.checkCode && (
                           <>
                             {" "}
-                            · code <span className="font-mono">{doc.checkCode}</span>
+                            · code <span className="font-mono">{decrypt(doc.checkCode)}</span>
                           </>
                         )}
                         {doc.expiresAt && ` · expires ${dateOnly(doc.expiresAt)}`}

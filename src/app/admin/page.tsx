@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { DOCUMENT_TYPES } from "@/lib/constants";
+import { decrypt } from "@/lib/crypto";
 import { dateOnly } from "@/lib/format";
 import { Stars, Stat, StatusBadge } from "@/components/ui";
 import { ActionForm, SubmitButton } from "@/components/forms";
@@ -105,11 +106,11 @@ export default async function AdminPage() {
                 <a href={`/admin/users/${d.driver.userId}`} className="underline">{d.driver.fullName}</a> — {label(d.type)}
               </p>
               <p className="text-slate-600">
-                Ref: <span className="font-mono">{d.reference}</span>
+                Ref: <span className="font-mono">{decrypt(d.reference)}</span>
                 {d.checkCode && (
                   <>
                     {" "}
-                    · Check code: <span className="font-mono">{d.checkCode}</span>
+                    · Check code: <span className="font-mono">{decrypt(d.checkCode)}</span>
                   </>
                 )}
                 {d.expiresAt && <> · Expires {dateOnly(d.expiresAt)}</>}

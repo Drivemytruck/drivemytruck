@@ -56,9 +56,10 @@ export async function resetPassword(_: ActionState, fd: FormData): Promise<Actio
   }
   const passwordHash = await bcrypt.hash(password, 12);
   await db.$transaction([
-    db.user.update({ where: { id: row.userId }, data: { passwordHash } }),
+    db.user.update({ where: { id: row.userId }, data: { passwordHash, sessionVersion: { increment: 1 } } }),
+    db.failedLogin.deleteMany({ where: { email: row.user.email } }),
     db.passwordResetToken.updateMany({ where: { userId: row.userId, usedAt: null }, data: { usedAt: new Date() } }),
   ]);
-  await createSession(row.user.id, row.user.role);
+  await createSession(row.user.id, row.user.role, row.user.sessionVersion + 1);
   redirect("/dashboard");
 }

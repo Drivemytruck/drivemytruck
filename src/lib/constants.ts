@@ -115,3 +115,6 @@ export const EMPLOYMENT_TYPES = ["PAYE (employed)", "Self-employed", "Ltd compan
 export const PERM_LISTING_DAYS = 14;
 /** A driver's "looking for permanent work" status lasts this long before they confirm. */
 export const PERM_SEEKING_DAYS = 30;
+
+/** Bump when the Terms or Privacy Policy change materially; users' acceptance is recorded against it. */
+export const TERMS_VERSION = "2026-11-24";

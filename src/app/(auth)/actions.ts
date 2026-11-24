@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/session";
 import { geocodePostcode, isValidUkPostcode } from "@/lib/geo";
+import { TERMS_VERSION } from "@/lib/constants";
 import type { ActionState } from "@/components/forms";
 
 const registerSchema = z.object({
@@ -31,10 +32,16 @@ export async function register(_: ActionState, formData: FormData): Promise<Acti
   const geo = await geocodePostcode(postcode);
   const passwordHash = await bcrypt.hash(password, 12);
 
+  const marketing = formData.get("marketing") === "on";
+  const now = new Date();
   const user = await db.user.create({
     data: {
       email,
       passwordHash,
+      termsAcceptedAt: now,
+      termsVersion: TERMS_VERSION,
+      marketingConsent: marketing,
+      marketingConsentAt: marketing ? now : null,
       role: isAdmin ? "ADMIN" : role,
       ...(isAdmin
         ? {}
@@ -44,19 +51,30 @@ export async function register(_: ActionState, formData: FormData): Promise<Acti
     },
   });
 
-  await createSession(user.id, user.role);
+  await createSession(user.id, user.role, user.sessionVersion);
   redirect(user.role === "DRIVER" ? "/driver/profile?welcome=1" : user.role === "COMPANY" ? "/company/profile?welcome=1" : "/admin");
 }
 
+const MAX_FAILED = 5;
+const LOCK_MINUTES = 15;
+
 export async function login(_: ActionState, formData: FormData): Promise<ActionState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 200);
   const password = String(formData.get("password") ?? "");
+  // Slow down password guessing: max 5 wrong attempts per email per 15 minutes.
+  const since = new Date(Date.now() - LOCK_MINUTES * 60000);
+  const recentFails = await db.failedLogin.count({ where: { email, createdAt: { gte: since } } });
+  if (recentFails >= MAX_FAILED) {
+    return { error: `Too many attempts. Please wait ${LOCK_MINUTES} minutes or reset your password.` };
+  }
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    await db.failedLogin.create({ data: { email } });
     return { error: "Wrong email or password." };
   }
-  if (user.suspended) return { error: "This account has been suspended. Please contact us." };
-  await createSession(user.id, user.role);
+  if (user.suspended) return { error: "This account has been suspended. Please contact hello@drivemytruck.co.uk." };
+  await db.failedLogin.deleteMany({ where: { email } });
+  await createSession(user.id, user.role, user.sessionVersion);
   const next = String(formData.get("next") ?? "");
   redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
 }

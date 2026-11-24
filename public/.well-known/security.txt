@@ -1,0 +1,4 @@
+Contact: mailto:hello@drivemytruck.co.uk
+Expires: 2027-11-24T00:00:00.000Z
+Preferred-Languages: en, pl
+Policy: https://drivemytruck.co.uk/security

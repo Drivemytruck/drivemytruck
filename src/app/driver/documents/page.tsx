@@ -6,6 +6,7 @@ import { dateOnly } from "@/lib/format";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Field, StatusBadge } from "@/components/ui";
 import { saveDocument } from "../actions";
+import { decrypt } from "@/lib/crypto";
 
 export const metadata: Metadata = { title: "My documents" };
 
@@ -19,9 +20,21 @@ export default async function DocumentsPage() {
       <div>
         <h1 className="h1">My documents</h1>
         <p className="muted">
-          We check your details with official gov.uk services, so you don&apos;t need to upload photos. Once everything is
-          checked you get the <span className="font-semibold text-emerald-700">✓ Verified</span> badge.
+          We check your details with official gov.uk services. Once everything is checked you get the{" "}
+          <span className="font-semibold text-emerald-700">✓ Verified</span> badge.
         </p>
+        <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">🔒 Your documents are safe with us</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            <li>We never ask for photos or scans of your documents.</li>
+            <li>Document numbers are encrypted, and only our verification team can see them.</li>
+            <li>Companies only see “✓ Verified” — never your numbers.</li>
+            <li>Your DVLA check code is deleted as soon as we&apos;ve checked it.</li>
+          </ul>
+          <a href="/security" className="mt-1 inline-block font-semibold underline">
+            How we protect your data →
+          </a>
+        </div>
       </div>
 
       {DOCUMENT_TYPES.map((meta) => {
@@ -45,7 +58,7 @@ export default async function DocumentsPage() {
               <input type="hidden" name="type" value={meta.type} />
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label={meta.referenceLabel}>
-                  <input className="input" name="reference" defaultValue={doc?.reference ?? ""} required />
+                  <input className="input" name="reference" defaultValue={decrypt(doc?.reference) ?? ""} required />
                 </Field>
                 {meta.needsCheckCode ? (
                   <Field
@@ -60,7 +73,7 @@ export default async function DocumentsPage() {
                       </>
                     }
                   >
-                    <input className="input" name="checkCode" defaultValue={doc?.checkCode ?? ""} placeholder="e.g. Ab Cd Ef Gh" />
+                    <input className="input" name="checkCode" defaultValue={decrypt(doc?.checkCode) ?? ""} placeholder="e.g. Ab Cd Ef Gh" />
                   </Field>
                 ) : (
                   <Field label="Expiry date">

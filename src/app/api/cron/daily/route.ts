@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { brandedEmail, sendEmail, siteUrl } from "@/lib/email";
 import { PERM_LISTING_DAYS } from "@/lib/constants";
 import { licenceLabel } from "@/lib/constants";
+import { encrypt, isEncrypted } from "@/lib/crypto";
 
 /**
  * Runs once a day (Vercel Cron, see vercel.json):
@@ -61,5 +62,16 @@ export async function GET(req: Request) {
     driversReminded++;
   }
 
-  return Response.json({ ok: true, jobsReminded, driversReminded });
+  // Housekeeping: drop old failed-login records and expired reset tokens; encrypt any legacy plaintext document fields.
+  await db.failedLogin.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 86400000) } } });
+  await db.passwordResetToken.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - 7 * 86400000) } } });
+  const docs = await db.driverDocument.findMany({ select: { id: true, reference: true, checkCode: true }, take: 1000 });
+  let encrypted = 0;
+  for (const d of docs) {
+    if (isEncrypted(d.reference) && (!d.checkCode || isEncrypted(d.checkCode))) continue;
+    await db.driverDocument.update({ where: { id: d.id }, data: { reference: encrypt(d.reference)!, checkCode: encrypt(d.checkCode) } });
+    encrypted++;
+  }
+
+  return Response.json({ ok: true, jobsReminded, driversReminded, encrypted });
 }

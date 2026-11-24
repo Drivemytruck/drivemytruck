@@ -46,3 +46,15 @@ export async function reliabilityFor(users: { userId: string; driverId?: string;
 export async function reliabilityOf(u: { userId: string; driverId?: string; companyId?: string }) {
   return (await reliabilityFor([u])).get(u.userId)!;
 }
+
+/** Our published policy: 3 no-shows (not overturned on appeal) and the driver's account is suspended. */
+export const NO_SHOW_LIMIT = 3;
+
+export async function enforceNoShowPolicy(driverUserId: string) {
+  const count = await db.reliabilityEvent.count({ where: { userId: driverUserId, type: "NO_SHOW", overturned: false } });
+  if (count >= NO_SHOW_LIMIT) {
+    await db.user.update({ where: { id: driverUserId }, data: { suspended: true, sessionVersion: { increment: 1 } } });
+    return true;
+  }
+  return false;
+}

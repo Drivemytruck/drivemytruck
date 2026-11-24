@@ -14,8 +14,8 @@ function secret() {
   return new TextEncoder().encode(s);
 }
 
-export async function createSession(userId: string, role: Role) {
-  const token = await new SignJWT({ role })
+export async function createSession(userId: string, role: Role, sessionVersion = 0) {
+  const token = await new SignJWT({ role, sv: sessionVersion })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(userId)
     .setIssuedAt()
@@ -46,6 +46,8 @@ export async function getCurrentUser() {
       include: { driver: true, company: true },
     });
     if (!user || user.suspended) return null;
+    // Sessions are invalidated when the password changes or an admin suspends/resets the account.
+    if ((payload.sv ?? 0) !== user.sessionVersion) return null;
     return user;
   } catch {
     return null;

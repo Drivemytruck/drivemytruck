@@ -78,13 +78,19 @@ enum ReliabilityEventType {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  role          Role
-  suspended     Boolean  @default(false)
-  avatarVersion Int      @default(0) // bumps on every photo change, used for cache-busting
-  createdAt     DateTime @default(now())
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  role               Role
+  suspended          Boolean   @default(false)
+  avatarVersion      Int       @default(0) // bumps on every photo change, used for cache-busting
+  sessionVersion     Int       @default(0) // bump to log the user out everywhere (e.g. after a password change)
+  termsAcceptedAt    DateTime?
+  termsVersion       String?
+  marketingConsent   Boolean   @default(false) // partner offers & discounts (opt-in, PECR)
+  marketingConsentAt DateTime?
+  locale             String    @default("en")
+  createdAt          DateTime  @default(now())
 
   driver          DriverProfile?
   company         CompanyProfile?
@@ -301,4 +307,26 @@ model Review {
 
   @@unique([bookingId, authorId])
   @@index([subjectId])
+}
+
+/// Failed login attempts, used to slow down password guessing.
+model FailedLogin {
+  id        String   @id @default(cuid())
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
+/// Record of admin actions (who did what, when) for accountability.
+model AdminAudit {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String // e.g. VERIFY_DOCUMENT, SUSPEND_USER, RESET_PASSWORD
+  targetId  String? // user / document / booking id
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([targetId])
+  @@index([createdAt])
 }

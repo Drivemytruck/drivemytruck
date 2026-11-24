@@ -39,6 +39,9 @@ export function Header({ user }: { user: { role: Role } | null }) {
                 </Link>
               ))}
             </nav>
+            <Link href="/account" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">
+              Account
+            </Link>
             <form action={logout}>
               <button className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">Log out</button>
             </form>

@@ -11,6 +11,7 @@ import { bookDriver, BookingError } from "@/lib/bookings";
 import { TIME_RE, todayDate } from "@/lib/availability";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { isLive } from "@/lib/jobs";
+import { encrypt } from "@/lib/crypto";
 import type { ActionState } from "@/components/forms";
 
 const profileSchema = z.object({
@@ -91,8 +92,9 @@ export async function saveDocument(_: ActionState, fd: FormData): Promise<Action
 
   await db.driverDocument.upsert({
     where: { driverId_type: { driverId: driver.id, type: type as DocumentType } },
-    create: { driverId: driver.id, type: type as DocumentType, reference, checkCode: checkCode ?? null, expiresAt: expiry },
-    update: { reference, checkCode: checkCode ?? null, expiresAt: expiry, status: "PENDING", adminNote: null },
+    // Document numbers and check codes are encrypted at rest.
+    create: { driverId: driver.id, type: type as DocumentType, reference: encrypt(reference)!, checkCode: encrypt(checkCode), expiresAt: expiry },
+    update: { reference: encrypt(reference)!, checkCode: encrypt(checkCode), expiresAt: expiry, status: "PENDING", adminNote: null },
   });
   // Any change to documents means the driver needs re-checking.
   if (driver.verificationStatus === "VERIFIED") {

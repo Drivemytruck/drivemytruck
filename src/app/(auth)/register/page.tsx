@@ -58,6 +58,13 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
               .
             </span>
           </label>
+          <label className="flex items-start gap-3 text-sm text-slate-600">
+            <input type="checkbox" name="marketing" className="mt-0.5 h-5 w-5 rounded accent-brand-500" />
+            <span>
+              Send me occasional discounts and offers for drivers &amp; hauliers (e.g. CPC training, insurance, accountants). Optional — you can
+              turn this off any time.
+            </span>
+          </label>
           <SubmitButton pendingText="Creating account…">Create account</SubmitButton>
         </ActionForm>
       </div>

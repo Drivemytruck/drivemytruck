@@ -5,7 +5,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { contactDetailsError } from "@/lib/contact-guard";
-import { LATE_CANCEL_HOURS } from "@/lib/reliability";
+import { LATE_CANCEL_HOURS, enforceNoShowPolicy } from "@/lib/reliability";
 import type { ActionState } from "@/components/forms";
 
 async function loadForUser(bookingId: string) {
@@ -71,6 +71,7 @@ export async function reportNoShow(fd: FormData) {
       data: { type: "NO_SHOW", userId: booking.driver.userId, role: "DRIVER", jobId: booking.jobId, bookingId: booking.id },
     }),
   ]);
+  await enforceNoShowPolicy(booking.driver.userId);
   revalidatePath(`/bookings/${booking.id}`);
 }
 

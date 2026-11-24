@@ -21,9 +21,13 @@ const companySteps = [
   "After the job, mark it done and leave a review.",
 ];
 
-export default function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
+  const { deleted } = await searchParams;
   return (
     <>
+      {deleted && (
+        <div className="bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-900">Your account and data have been deleted. Thanks for trying Drive My Truck.</div>
+      )}
       <section className="relative overflow-hidden bg-navy-950 text-white">
         <div
           aria-hidden
