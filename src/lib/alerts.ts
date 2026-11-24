@@ -5,6 +5,7 @@ import { canDriveClass, licenceLabel } from "./constants";
 import { jobFitsWindow, windowLabel, dayRateLabel } from "./availability";
 import { brandedEmail, sendEmail, sendEmailBatch, siteUrl } from "./email";
 import { makeTx, type Lang } from "./tx";
+import { addNotification } from "./notify";
 
 const fmtDay = (d: Date, lang: Lang) =>
   new Intl.DateTimeFormat(lang === "pl" ? "pl-PL" : "en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(d);
@@ -59,6 +60,12 @@ export async function notifyJobMatches(driverId: string, newDates: Date[]) {
       url: `${siteUrl()}/company/jobs/${job.id}`,
     });
     await sendEmail({ to: job.company.user.email, subject: tx("{name} is available for your job", { name: first }), html, text });
+    await addNotification(job.company.userId, {
+      icon: "🙋",
+      title: tx("{name} is available for your job", { name: first }),
+      body: `${fmtDay(day, lang)} · ${tx(windowLabel(slot))}${rate ? ` · ${rate}` : ""}`,
+      link: `/company/jobs/${job.id}`,
+    });
     sent++;
   }
   return sent;
@@ -173,7 +180,9 @@ export async function notifyDriversOfNewJob(jobId: string) {
       cta: tx("View job"),
       url: `${siteUrl()}/jobs/${job.id}`,
     });
-    messages.push({ to: d.user.email, subject: tx("New job near you: {job}", { job: `${licenceLabel(job.licenceClass)} · ${job.town ?? job.postcode}` }), html, text });
+    const subject = tx("New job near you: {job}", { job: `${licenceLabel(job.licenceClass)} · ${job.town ?? job.postcode}` });
+    messages.push({ to: d.user.email, subject, html, text });
+    await addNotification(d.userId, { icon: "🚚", title: subject, body: jobLine(job, lang), link: `/jobs/${job.id}` });
   }
   return sendEmailBatch(messages);
 }

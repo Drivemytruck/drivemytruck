@@ -101,7 +101,8 @@ export async function login(_: ActionState, formData: FormData): Promise<ActionS
   redirect(next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
 }
 
-export async function logout() {
+export async function logout(formData?: FormData) {
   await destroySession();
-  redirect("/");
+  const next = String(formData?.get("next") ?? "");
+  redirect(next.startsWith("/") && !next.startsWith("//") ? `/login?next=${encodeURIComponent(next)}` : "/");
 }

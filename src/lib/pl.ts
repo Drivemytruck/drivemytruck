@@ -570,4 +570,20 @@ export const PL: Record<string, string> = {
   "A no-show was reported": "Zgłoszono niestawienie się",
   "The company reported that you didn't turn up for:": "Firma zgłosiła, że nie przyjechałeś na:",
   "If that's not right, you can dispute it from the booking page.": "Jeśli to nieprawda, możesz się odwołać na stronie rezerwacji.",
+
+  // Notifications UI & accounts
+  Notifications: "Powiadomienia",
+  "Mark all as read": "Oznacz wszystkie jako przeczytane",
+  Unread: "Nieprzeczytane",
+  "No notifications yet": "Brak powiadomień",
+  "Invites, bookings and new jobs near you will show up here.": "Tu pojawią się zaproszenia, rezerwacje i nowe zlecenia w okolicy.",
+  "+{n} more": "+{n} więcej",
+  View: "Zobacz",
+  Dismiss: "Zamknij",
+  "This link is for a company account": "Ten link jest dla konta firmy",
+  "This link is for a driver account": "Ten link jest dla konta kierowcy",
+  "This page is for admins": "Ta strona jest dla administratorów",
+  "You're signed in as {name}.": "Jesteś zalogowany jako {name}.",
+  "Log out and sign in with the right account": "Wyloguj się i zaloguj na właściwe konto",
+  "Back to my dashboard": "Wróć do mojego panelu",
 };

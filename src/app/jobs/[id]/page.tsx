@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
+import { markReadByLink } from "@/lib/notify";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -24,9 +25,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const job = await db.job.findUnique({ where: { id }, include: { company: { include: { user: { select: { id: true, avatarVersion: true } } } }, booking: true } });
   if (!job) notFound();
   const perm = job.kind === "PERMANENT";
+  await markReadByLink(user.id, `/jobs/${job.id}`);
   if (user.role === "COMPANY") {
     if (job.companyId === user.company?.id) redirect(`/company/jobs/${job.id}`);
-    notFound();
+    redirect(`/wrong-account?need=driver&next=${encodeURIComponent(`/jobs/${job.id}`)}`);
   }
   const driver = user.driver;
   const application = driver

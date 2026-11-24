@@ -193,6 +193,7 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
             paragraphs: [tx("{name} accepted your invite and is now booked for:", { name: driver.fullName }), line(job, lang)],
             cta: tx("View booking"),
             path: `/bookings/${booking.id}`,
+            icon: "✅",
           })),
         );
     } catch (e) {
@@ -225,6 +226,7 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
           ],
           cta: job.kind === "PERMANENT" ? tx("View driver") : tx("View driver & book"),
           path: `/company/jobs/${job.id}`,
+          icon: "🙋",
         })),
       );
   }

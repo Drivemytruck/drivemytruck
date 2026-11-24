@@ -6,7 +6,7 @@ import { LangSwitch } from "./LangSwitch";
 import { logout } from "@/app/(auth)/actions";
 import type { Dict } from "@/lib/i18n";
 
-export function Header({ user, t, lang }: { user: { role: Role } | null; t: Dict["nav"]; lang: "en" | "pl" }) {
+export function Header({ user, t, lang, unread = 0, bellLabel = "Notifications" }: { user: { role: Role } | null; t: Dict["nav"]; lang: "en" | "pl"; unread?: number; bellLabel?: string }) {
   const links: Record<Role, { href: string; label: string }[]> = {
     DRIVER: [
       { href: "/driver", label: t.driver.jobs },
@@ -47,8 +47,20 @@ export function Header({ user, t, lang }: { user: { role: Role } | null; t: Dict
           </Suspense>
           {user ? (
             <>
-              <Link href="/account" className="rounded-lg px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">
-                {t.account}
+              <Link href="/notifications" className="relative rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label={`${bellLabel}${unread ? ` (${unread})` : ""}`}>
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                </svg>
+                {unread > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-500 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
+              </Link>
+              <Link href="/account" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100" aria-label={t.account} title={t.account}>
+                <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 9a7 7 0 0 1 14 0" />
+                </svg>
               </Link>
               <form action={logout}>
                 <button className="rounded-lg px-2 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100">{t.logout}</button>

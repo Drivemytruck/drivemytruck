@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
-import { notFound } from "next/navigation";
+import { markReadByLink } from "@/lib/notify";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
@@ -31,7 +32,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   });
   if (!booking) notFound();
   const side = booking.driver.userId === user.id ? "DRIVER" : booking.company.userId === user.id ? "COMPANY" : user.role === "ADMIN" ? "ADMIN" : null;
-  if (!side) notFound();
+  if (!side) redirect(`/wrong-account?need=${user.role === "DRIVER" ? "company" : "driver"}&next=${encodeURIComponent(`/bookings/${booking.id}`)}`);
+  await markReadByLink(user.id, `/bookings/${booking.id}`);
 
   const myReview = booking.reviews.find((r) => r.authorId === user.id);
   const otherReviewed = booking.reviews.some((r) => r.authorId !== user.id);

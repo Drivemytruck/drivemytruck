@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import type { Role } from "@prisma/client";
@@ -58,8 +58,16 @@ export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>
 
 export async function requireUser(role?: Role) {
   const user = await getCurrentUser();
-  if (!user) redirect("/login");
-  if (role && user.role !== role) redirect("/dashboard");
+  if (!user) {
+    // Come back to the same page (e.g. an invite link from an email) after logging in.
+    const path = (await headers()).get("x-pathname");
+    redirect(path && path.startsWith("/") && !path.startsWith("//") ? `/login?next=${encodeURIComponent(path)}` : "/login");
+  }
+  if (role && user.role !== role) {
+    // e.g. a driver's invite link opened while logged in as a company
+    const path = (await headers()).get("x-pathname") ?? "";
+    redirect(`/wrong-account?need=${role.toLowerCase()}&next=${encodeURIComponent(path)}`);
+  }
   return user;
 }
 

@@ -181,6 +181,7 @@ export async function markHired(_: ActionState, fd: FormData): Promise<ActionSta
         paragraphs: [tx("{company} marked you as hired for this role:", { company: company?.companyName ?? "" }), line(job, lang)],
         cta: tx("View job"),
         path: `/jobs/${job.id}`,
+        icon: "🎉",
       })),
     );
   return { ok: await T("Marked as hired 🎉 The advert has been closed.") };
@@ -219,6 +220,7 @@ export async function acceptApplicant(_: ActionState, fd: FormData): Promise<Act
           paragraphs: [tx("Good news — {company} has booked you for this job:", { company: company.companyName }), line(job, lang), tx("Their contact details are on the booking page.")],
           cta: tx("View booking"),
           path: `/bookings/${booking.id}`,
+          icon: "✅",
         })),
       );
     redirect(`/bookings/${booking.id}?new=1`);
@@ -254,6 +256,7 @@ export async function inviteDriver(_: ActionState, fd: FormData): Promise<Action
       ],
       cta: tx("View job"),
       path: `/jobs/${job.id}`,
+      icon: "📩",
     })),
   );
   return { ok: await T("Invite sent. The driver will see it under “My work”.") };

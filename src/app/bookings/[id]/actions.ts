@@ -71,6 +71,7 @@ export async function cancelBooking(fd: FormData) {
       ],
       cta: side === "DRIVER" ? tx("Find another driver") : tx("See jobs near me"),
       path: side === "DRIVER" ? `/company/jobs/${booking.jobId}` : "/driver",
+      icon: "❌",
     })),
   );
 }
@@ -96,6 +97,7 @@ export async function reportNoShow(fd: FormData) {
       paragraphs: [tx("The company reported that you didn't turn up for:"), line(booking.job, lang), tx("If that's not right, you can dispute it from the booking page.")],
       cta: tx("View booking"),
       path: `/bookings/${booking.id}`,
+      icon: "⚠️",
     })),
   );
   revalidatePath(`/bookings/${booking.id}`);

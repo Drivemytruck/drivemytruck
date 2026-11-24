@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
+import { markReadByLink } from "@/lib/notify";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -35,7 +36,7 @@ export default async function CompanyJobPage({
   const { tx } = await getTx();
   const { id } = await params;
   const { posted } = await searchParams;
-  const { company } = await requireCompany();
+  const { user, company } = await requireCompany();
   const job = await db.job.findUnique({
     where: { id },
     include: {
@@ -44,6 +45,7 @@ export default async function CompanyJobPage({
     },
   });
   if (!job || job.companyId !== company.id) notFound();
+  await markReadByLink(user.id, `/company/jobs/${job.id}`);
 
   const perm = job.kind === "PERMANENT";
   const live = isLive(job);

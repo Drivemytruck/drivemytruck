@@ -5,6 +5,9 @@ import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/BottomNav";
 import { getCurrentUser } from "@/lib/session";
 import { getDict } from "@/lib/i18n";
+import { db } from "@/lib/db";
+import { makeTx } from "@/lib/tx";
+import { NotificationBanner } from "@/components/NotificationBanner";
 
 const jakarta = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-jakarta", display: "swap" });
 
@@ -23,6 +26,13 @@ export const viewport: Viewport = { themeColor: "#0b2a5b", width: "device-width"
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   const { lang, t } = await getDict();
+  const tx = makeTx(lang);
+  const [unread, latest] = user
+    ? await Promise.all([
+        db.notification.count({ where: { userId: user.id, readAt: null } }),
+        db.notification.findFirst({ where: { userId: user.id, readAt: null }, orderBy: { createdAt: "desc" } }),
+      ])
+    : [0, null];
   const navLabels =
     user?.role === "DRIVER"
       ? [t.nav.driverShort.jobs, t.nav.driverShort.work, t.nav.driverShort.availability, t.nav.driverShort.profile]
@@ -32,7 +42,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang === "pl" ? "pl" : "en-GB"} className={jakarta.variable}>
       <body className="min-h-dvh">
-        <Header user={user ? { role: user.role } : null} t={t.nav} lang={lang} />
+        <Header user={user ? { role: user.role } : null} t={t.nav} lang={lang} unread={unread} bellLabel={tx("Notifications")} />
+        {latest && <NotificationBanner n={latest} more={unread - 1} tx={tx} />}
         <main className={user ? "pb-24 sm:pb-0" : ""}>{children}</main>
         {user && <BottomNav role={user.role} labels={navLabels} />}
         <footer className={`border-t border-slate-200 bg-white ${user ? "mb-20 sm:mb-0" : ""}`}>
