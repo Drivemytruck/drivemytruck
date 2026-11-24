@@ -92,8 +92,8 @@ export default async function DriverBookingsPage() {
               key={b.id}
               href={`/bookings/${b.id}`}
               title={`${licenceLabel(b.job.licenceClass)} · ${b.company.companyName}`}
-              sub={`${dateTime(b.job.startAt)} · ${b.job.town ?? b.job.postcode}`}
-              right={money(b.job.payAmount)}
+              sub={`${dateTime(b.agreedStartAt ?? b.job.startAt)} · ${b.job.town ?? b.job.postcode}`}
+              right={money(b.agreedPayAmount ?? b.job.payAmount)}
               badge="CONFIRMED"
             />
           ))
@@ -130,8 +130,8 @@ export default async function DriverBookingsPage() {
               key={b.id}
               href={`/bookings/${b.id}`}
               title={`${licenceLabel(b.job.licenceClass)} · ${b.company.companyName}`}
-              sub={`${dateTime(b.job.startAt)}${b.status === "COMPLETED" && !b.reviews.length ? ` · ⭐ ${tx("Leave a review")}` : ""}`}
-              right={money(b.job.payAmount)}
+              sub={`${dateTime(b.agreedStartAt ?? b.job.startAt)}${b.status === "COMPLETED" && !b.reviews.length ? ` · ⭐ ${tx("Leave a review")}` : ""}`}
+              right={money(b.agreedPayAmount ?? b.job.payAmount)}
               badge={b.status}
             />
           ))}

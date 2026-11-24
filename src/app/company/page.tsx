@@ -152,7 +152,7 @@ export default async function CompanyHome() {
               <span>
                 <span className="block font-semibold text-navy-900">{j.booking!.driver.fullName}</span>
                 <span className="text-sm text-slate-500">
-                  {licenceLabel(j.licenceClass)} · {dateTime(j.startAt)}
+                  {licenceLabel(j.licenceClass)} · {dateTime(j.booking?.agreedStartAt ?? j.startAt)}
                 </span>
               </span>
               <span className="btn-navy btn-sm">{tx("Complete")}</span>
@@ -172,7 +172,7 @@ export default async function CompanyHome() {
                   {licenceLabel(j.licenceClass)} · {j.town ?? j.postcode}
                 </p>
                 <p className="text-sm text-slate-500">
-                  {j.kind === "PERMANENT" ? `${tx("Permanent")} · ${j.schedule ?? ""}` : dateTime(j.startAt)}
+                  {j.kind === "PERMANENT" ? `${tx("Permanent")} · ${j.schedule ?? ""}` : dateTime(j.booking?.agreedStartAt ?? j.startAt)}
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-2">
                   {j.kind === "PERMANENT" && j.status === "OPEN" ? (

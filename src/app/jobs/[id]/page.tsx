@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
 import { markReadByLink } from "@/lib/notify";
+import { Negotiation, TermsForm } from "@/components/Negotiation";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -32,7 +33,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   }
   const driver = user.driver;
   const application = driver
-    ? await db.application.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId: driver.id } } })
+    ? await db.application.findUnique({
+        where: { jobId_driverId: { jobId: job.id, driverId: driver.id } },
+        include: { offers: { orderBy: { createdAt: "desc" } } },
+      })
     : null;
   const [rating, reliability] = await Promise.all([
     ratingSummary(job.company.userId),
@@ -41,7 +45,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const distance = driver ? distanceMiles(driver, job) : null;
   const qualified = driver ? canDriveClass(driver.licenceClasses, job.licenceClass) : false;
   const bookedMe = job.booking && driver && job.booking.driverId === driver.id;
-  const { tx } = await getTx();
+  const { tx, lang } = await getTx();
 
   return (
     <div className="page max-w-2xl space-y-4">
@@ -138,6 +142,9 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               <p className="text-sm text-slate-500">
                 {perm ? tx("The company can see your profile and contact details and may get in touch.") : tx("We'll show it under “My work” as soon as they book you.")}
               </p>
+              {!perm && (
+                <Negotiation viewer="DRIVER" applicationId={application.id} jobId={job.id} offers={application.offers} job={job} otherName={job.company.companyName} tx={tx} lang={lang} />
+              )}
               <form action={withdrawApplication}>
                 <input type="hidden" name="jobId" value={job.id} />
                 <button className="btn-outline btn-sm">{tx("Withdraw")}</button>
@@ -158,6 +165,21 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               )}
               <SubmitButton pendingText={tx("Sending…")}>{perm ? tx("I'm interested →") : application?.status === "INVITED" ? tx("Accept & get booked →") : tx("I'm available →")}</SubmitButton>
             </ActionForm>
+          )}
+          {!perm && isLive(job) && qualified && !bookedMe && application?.status !== "APPLIED" && application?.status !== "ACCEPTED" && (
+            <div className="mt-3">
+              {application ? (
+                <Negotiation viewer="DRIVER" applicationId={application.id} jobId={job.id} offers={application.offers} job={job} otherName={job.company.companyName} tx={tx} lang={lang} />
+              ) : (
+                <details className="rounded-xl border border-slate-200 p-3 text-sm">
+                  <summary className="cursor-pointer font-semibold text-navy-900">💬 {tx("Propose different pay or start time")}</summary>
+                  <p className="mt-2 text-xs text-slate-500">{tx("Not quite right? Suggest your price or start time — the company can accept, counter or decline.")}</p>
+                  <div className="mt-3">
+                    <TermsForm base={job} hidden={{ jobId: job.id }} submit={tx("Send offer")} tx={tx} />
+                  </div>
+                </details>
+              )}
+            </div>
           )}
           {application?.status === "INVITED" && job.status === "OPEN" && (
             <form action={withdrawApplication} className="mt-2">

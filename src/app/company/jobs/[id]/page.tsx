@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
 import { markReadByLink } from "@/lib/notify";
+import { Negotiation } from "@/components/Negotiation";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
 import { drivableClasses, licenceLabel } from "@/lib/constants";
+import { agreedTerms, termsLabel } from "@/lib/offers";
 import { dateOnly, dateTime, money, payUnit } from "@/lib/format";
 import { distanceMiles, withinReach } from "@/lib/geo";
 import { ratingSummaries } from "@/lib/reviews";
@@ -33,14 +35,17 @@ export default async function CompanyJobPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ posted?: string }>;
 }) {
-  const { tx } = await getTx();
+  const { tx, lang } = await getTx();
   const { id } = await params;
   const { posted } = await searchParams;
   const { user, company } = await requireCompany();
   const job = await db.job.findUnique({
     where: { id },
     include: {
-      applications: { include: { driver: { include: { user: { select: { id: true, avatarVersion: true, email: true } } } } }, orderBy: { createdAt: "asc" } },
+      applications: {
+        include: { driver: { include: { user: { select: { id: true, avatarVersion: true, email: true } } } }, offers: { orderBy: { createdAt: "desc" } } },
+        orderBy: { createdAt: "asc" },
+      },
       booking: { include: { driver: true } },
     },
   });
@@ -157,6 +162,9 @@ export default async function CompanyJobPage({
       {job.booking && job.booking.status !== "CANCELLED" && (
         <div className="card border-emerald-200 p-5">
           <p className="font-semibold text-emerald-700">✅ {tx("Booked")}: {job.booking.driver.fullName}</p>
+          {job.booking.agreedPayAmount != null && (
+            <p className="mt-1 text-sm text-slate-700">💬 {tx("Agreed terms")}: {termsLabel(agreedTerms(job.booking, job), tx, lang)}</p>
+          )}
           <Link href={`/bookings/${job.booking.id}`} className="btn-navy btn-sm mt-3">
             {tx("View booking & contact details")}
           </Link>
@@ -206,9 +214,16 @@ export default async function CompanyJobPage({
                     <input type="hidden" name="jobId" value={job.id} />
                     <input type="hidden" name="driverId" value={a.driverId} />
                     <SubmitButton className="btn-primary w-full" pendingText={tx("Booking…")}>
-                      {tx("Book {name}", { name: a.driver.fullName.split(" ")[0] })}
+                      {a.offers.some((o) => o.status === "PENDING")
+                        ? tx("Book {name} at advertised terms", { name: a.driver.fullName.split(" ")[0] })
+                        : tx("Book {name}", { name: a.driver.fullName.split(" ")[0] })}
                     </SubmitButton>
                   </ActionForm>
+                  )}
+                  {!perm && (
+                    <div className="mt-3">
+                      <Negotiation viewer="COMPANY" applicationId={a.id} jobId={job.id} offers={a.offers} job={job} otherName={a.driver.fullName.split(" ")[0]} tx={tx} lang={lang} />
+                    </div>
                   )}
                 </DriverCard>
               ))
@@ -221,7 +236,11 @@ export default async function CompanyJobPage({
             <section className="space-y-2">
               <h2 className="h2">{tx("Invited — waiting for driver")} ({invited.length})</h2>
               {invited.map((a) => (
-                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} tx={tx} />
+                <DriverCard key={a.id} driver={a.driver} photo={avatarUrl(a.driver.user)} reliability={reliability.get(a.driver.user.id)} rating={ratings.get(a.driver.user.id)} distance={distanceMiles(a.driver, job)} tx={tx}>
+                  {!perm && (
+                    <Negotiation viewer="COMPANY" applicationId={a.id} jobId={job.id} offers={a.offers} job={job} otherName={a.driver.fullName.split(" ")[0]} tx={tx} lang={lang} />
+                  )}
+                </DriverCard>
               ))}
             </section>
           )}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTx } from "@/lib/i18n";
 import { markReadByLink } from "@/lib/notify";
+import { agreedTerms } from "@/lib/offers";
 import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -37,13 +38,14 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
 
   const myReview = booking.reviews.find((r) => r.authorId === user.id);
   const otherReviewed = booking.reviews.some((r) => r.authorId !== user.id);
-  const started = booking.job.startAt.getTime() <= Date.now();
+  const terms = agreedTerms(booking, booking.job);
+  const started = terms.startAt.getTime() <= Date.now();
   const other =
     side === "DRIVER"
       ? { label: tx("Company"), name: booking.company.companyName, phone: booking.company.phone, email: booking.company.user.email, href: `/companies/${booking.companyId}`, contact: booking.company.contactName, photo: avatarUrl(booking.company.user) }
       : { label: tx("Driver"), name: booking.driver.fullName, phone: booking.driver.phone, email: booking.driver.user.email, href: `/drivers/${booking.driverId}`, contact: null, photo: avatarUrl(booking.driver.user) };
   const active = booking.status === "CONFIRMED";
-  const hoursToStart = (booking.job.startAt.getTime() - Date.now()) / 3600000;
+  const hoursToStart = (terms.startAt.getTime() - Date.now()) / 3600000;
   const lateCancel = hoursToStart < LATE_CANCEL_HOURS;
   const reviewable = booking.status === "COMPLETED" || booking.status === "NO_SHOW";
 
@@ -62,7 +64,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           <div>
             <h1 className="h1">{tx("{class} job", { class: licenceLabel(booking.job.licenceClass) })}</h1>
             <p className="mt-1 text-slate-600">
-              🕒 {dateTime(booking.job.startAt)} · ⏱️ {booking.job.durationHours} h
+              🕒 {dateTime(terms.startAt)} · ⏱️ {booking.job.durationHours} h
             </p>
             <p className="text-slate-600">
               📍 {booking.job.town ? `${booking.job.town}, ` : ""}
@@ -73,8 +75,9 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-extrabold text-brand-500">{money(booking.job.payAmount)}</p>
-            <p className="text-xs text-slate-500">{tx(payUnit(booking.job.payType))}</p>
+            <p className="text-2xl font-extrabold text-brand-500">{money(terms.payAmount)}</p>
+            <p className="text-xs text-slate-500">{tx(payUnit(terms.payType))}</p>
+            {terms.negotiated && <span className="chip mt-1 bg-sky-50 text-sky-800">💬 {tx("Agreed terms")}</span>}
           </div>
         </div>
         {booking.job.description && <p className="mt-4 whitespace-pre-line text-sm text-slate-700">{booking.job.description}</p>}

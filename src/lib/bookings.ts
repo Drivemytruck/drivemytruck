@@ -1,10 +1,11 @@
 import "server-only";
 import { db } from "./db";
+import type { Terms } from "./offers";
 
 export class BookingError extends Error {}
 
 /** Books a driver onto a job. Used when a company accepts an application or a driver accepts an invite. */
-export async function bookDriver(jobId: string, driverId: string) {
+export async function bookDriver(jobId: string, driverId: string, terms?: Terms) {
   return db.$transaction(async (tx) => {
     const job = await tx.job.findUnique({ where: { id: jobId } });
     if (!job) throw new BookingError("Job not found.");
@@ -25,10 +26,14 @@ export async function bookDriver(jobId: string, driverId: string) {
       data: { status: "DECLINED" },
     });
     // A job can only have one booking; reuse the row if a previous booking was cancelled.
+    // Negotiated terms (if any) are stored on the booking; otherwise the advertised ones apply.
+    const agreed = terms
+      ? { agreedPayAmount: terms.payAmount, agreedPayType: terms.payType, agreedStartAt: terms.startAt }
+      : { agreedPayAmount: null, agreedPayType: null, agreedStartAt: null };
     return tx.booking.upsert({
       where: { jobId },
-      create: { jobId, driverId, companyId: job.companyId },
-      update: { driverId, status: "CONFIRMED", completedAt: null },
+      create: { jobId, driverId, companyId: job.companyId, ...agreed },
+      update: { driverId, status: "CONFIRMED", completedAt: null, ...agreed },
     });
   });
 }

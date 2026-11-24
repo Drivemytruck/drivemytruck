@@ -64,6 +64,14 @@ enum ApplicationStatus {
   WITHDRAWN
 }
 
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  SUPERSEDED
+}
+
 enum BookingStatus {
   CONFIRMED
   COMPLETED
@@ -278,24 +286,28 @@ model Application {
   message   String?
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
+  offers    Offer[]
 
   @@unique([jobId, driverId])
 }
 
 model Booking {
-  id            String         @id @default(cuid())
-  jobId         String         @unique
-  job           Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  driverId      String
-  driver        DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  companyId     String
-  company       CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  status        BookingStatus  @default(CONFIRMED)
-  completedAt   DateTime?
-  noShowAt      DateTime?
-  disputeText   String? // driver's side if they dispute a no-show
-  disputeStatus String? // OPEN | UPHELD | OVERTURNED
-  createdAt     DateTime       @default(now())
+  id              String         @id @default(cuid())
+  jobId           String         @unique
+  job             Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  driverId        String
+  driver          DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  status          BookingStatus  @default(CONFIRMED)
+  agreedPayAmount Int? // pence; null = advertised pay
+  agreedPayType   PayType?
+  agreedStartAt   DateTime? // null = advertised start
+  completedAt     DateTime?
+  noShowAt        DateTime?
+  disputeText     String? // driver's side if they dispute a no-show
+  disputeStatus   String? // OPEN | UPHELD | OVERTURNED
+  createdAt       DateTime       @default(now())
 
   reviews Review[]
 }
@@ -373,4 +385,20 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+}
+
+/// Negotiation on a shift: proposed pay and/or start time. One PENDING offer per application at a time.
+model Offer {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  byRole        Role // DRIVER or COMPANY
+  payAmount     Int // pence
+  payType       PayType
+  startAt       DateTime
+  note          String?
+  status        OfferStatus @default(PENDING)
+  createdAt     DateTime    @default(now())
+
+  @@index([applicationId, status])
 }
