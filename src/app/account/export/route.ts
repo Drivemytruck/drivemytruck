@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { decrypt } from "@/lib/crypto";
+import { INSTR_KEYS } from "@/lib/instructions";
 
 /** UK GDPR right of access: everything we hold about the signed-in user, as JSON. */
 export async function GET() {
@@ -25,6 +26,11 @@ export async function GET() {
     driver: safe.driver && {
       ...safe.driver,
       documents: safe.driver.documents.map((d) => ({ ...d, reference: decrypt(d.reference), checkCode: decrypt(d.checkCode) })),
+    },
+    company: safe.company && {
+      ...safe.company,
+      ...Object.fromEntries(INSTR_KEYS.map((k) => [k, decrypt(safe.company![k])])),
+      bookings: safe.company.bookings.map((b) => ({ ...b, instrExtra: decrypt(b.instrExtra) })),
     },
   };
   return new Response(JSON.stringify(data, null, 2), {

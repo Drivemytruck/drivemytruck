@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "./db";
 import type { Terms } from "./offers";
+import { hasInstructions } from "./instructions";
 
 export class BookingError extends Error {}
 
@@ -30,10 +31,14 @@ export async function bookDriver(jobId: string, driverId: string, terms?: Terms)
     const agreed = terms
       ? { agreedPayAmount: terms.payAmount, agreedPayType: terms.payType, agreedStartAt: terms.startAt }
       : { agreedPayAmount: null, agreedPayType: null, agreedStartAt: null };
+    // Companies can choose to send their standard shift instructions to every booked driver automatically.
+    const company = await tx.companyProfile.findUnique({ where: { id: job.companyId } });
+    const autoInstr = !!company && company.instrAuto && hasInstructions(company);
+    const instr = { instrExtra: null, instrSentAt: autoInstr ? new Date() : null, instrOpenedAt: null, instrReadAt: null };
     return tx.booking.upsert({
       where: { jobId },
-      create: { jobId, driverId, companyId: job.companyId, ...agreed },
-      update: { driverId, status: "CONFIRMED", completedAt: null, ...agreed },
+      create: { jobId, driverId, companyId: job.companyId, ...agreed, ...instr },
+      update: { driverId, status: "CONFIRMED", completedAt: null, ...agreed, ...instr },
     });
   });
 }

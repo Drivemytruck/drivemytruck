@@ -12,7 +12,9 @@ import { dateTime, money, payUnit } from "@/lib/format";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { StarInput } from "@/components/StarInput";
 import { Avatar, Stars, StatusBadge } from "@/components/ui";
-import { cancelBooking, completeBooking, disputeNoShow, leaveReview, reportNoShow } from "./actions";
+import { cancelBooking, completeBooking, confirmInstructionsRead, disputeNoShow, leaveReview, reportNoShow, sendInstructions } from "./actions";
+import { companyInstructions, instructionsWindow } from "@/lib/instructions";
+import { decrypt } from "@/lib/crypto";
 import { LATE_CANCEL_HOURS } from "@/lib/reliability";
 
 export const metadata: Metadata = { title: "Booking" };
@@ -48,6 +50,16 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const hoursToStart = (terms.startAt.getTime() - Date.now()) / 3600000;
   const lateCancel = hoursToStart < LATE_CANCEL_HOURS;
   const reviewable = booking.status === "COMPLETED" || booking.status === "NO_SHOW";
+
+  // Shift instructions (gate codes, keys…): the driver sees them only around the shift itself.
+  const win = instructionsWindow(terms.startAt, booking.job.durationHours);
+  const now = Date.now();
+  const instrOpen = active && !!booking.instrSentAt && now >= win.from.getTime() && now <= win.until.getTime();
+  const standard = companyInstructions(booking.company);
+  const extra = decrypt(booking.instrExtra);
+  if (side === "DRIVER" && instrOpen && !booking.instrOpenedAt) {
+    await db.booking.update({ where: { id: booking.id }, data: { instrOpenedAt: new Date() } });
+  }
 
   return (
     <div className="page max-w-2xl space-y-4">
@@ -101,6 +113,92 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
               <a href={`mailto:${other.email}`} className="btn-outline">
                 ✉️ {tx("Email")}
               </a>
+            </div>
+          )}
+        </div>
+      )}
+
+      {active && side === "COMPANY" && (
+        <div className={`card p-5 ${booking.instrSentAt ? "" : "border-amber-300"}`}>
+          <h2 className="h2">📋 {tx("Shift instructions")}</h2>
+          <p className="mt-1 text-sm">
+            {booking.instrReadAt ? (
+              <span className="font-semibold text-emerald-700">✅ {tx("Read by the driver · {when}", { when: dateTime(booking.instrReadAt) })}</span>
+            ) : booking.instrOpenedAt ? (
+              <span className="text-sky-800">👀 {tx("Opened by the driver · {when}", { when: dateTime(booking.instrOpenedAt) })}</span>
+            ) : booking.instrSentAt ? (
+              <span className="text-slate-600">
+                📨 {win.from.getTime() > now
+                  ? tx("Sent · {when}. The driver can open them from {from}.", { when: dateTime(booking.instrSentAt), from: dateTime(win.from) })
+                  : tx("Sent · {when}. The driver can open them now.", { when: dateTime(booking.instrSentAt) })}
+              </span>
+            ) : (
+              <span className="text-amber-800">{tx("Not sent yet. Tell the driver how to get in, where the keys are and what to do — so nobody has to be there at 4am.")}</span>
+            )}
+          </p>
+          {standard.length ? (
+            <details className="mt-3 rounded-xl border border-slate-200 p-3 text-sm">
+              <summary className="cursor-pointer font-semibold text-navy-900">{tx("Your standard instructions (included)")}</summary>
+              <div className="mt-2 space-y-2">
+                {standard.map((f) => (
+                  <p key={f.key} className="whitespace-pre-line text-slate-700">
+                    <span className="font-semibold">{f.icon} {tx(f.label)}:</span> {f.text}
+                  </p>
+                ))}
+                <Link href="/company/profile#instructions" className="text-brand-700 underline">{tx("Edit in company profile")}</Link>
+              </div>
+            </details>
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">
+              {tx("Tip: save your standard instructions once and they'll be included every time.")}{" "}
+              <Link href="/company/profile#instructions" className="text-brand-700 underline">{tx("Add them in your company profile →")}</Link>
+            </p>
+          )}
+          <ActionForm action={sendInstructions} className="mt-3 space-y-3">
+            <input type="hidden" name="bookingId" value={booking.id} />
+            <label className="block">
+              <span className="label">{tx("Just for this shift (optional)")}</span>
+              <textarea name="instrExtra" className="input min-h-20" maxLength={1500} defaultValue={extra ?? ""} placeholder={tx("e.g. Today's gate code 4821 · truck AB12 CDE · trailer 5531 · first drop Daventry DC")} />
+            </label>
+            <SubmitButton className="btn-navy w-full" pendingText={tx("Sending…")}>
+              {booking.instrSentAt ? tx("Update & resend instructions") : tx("Send instructions to driver")}
+            </SubmitButton>
+          </ActionForm>
+        </div>
+      )}
+
+      {active && side === "DRIVER" && (
+        <div className={`card p-5 ${instrOpen && !booking.instrReadAt ? "border-sky-300" : ""}`}>
+          <h2 className="h2">📋 {tx("Shift instructions")}</h2>
+          {!booking.instrSentAt ? (
+            <p className="mt-1 text-sm text-slate-600">{tx("{company} hasn't sent instructions yet. We'll notify you when they do.", { company: booking.company.companyName })}</p>
+          ) : now < win.from.getTime() ? (
+            <p className="mt-1 text-sm text-slate-600">🔒 {tx("Instructions from {company} are ready. For security they unlock {when}.", { company: booking.company.companyName, when: dateTime(win.from) })}</p>
+          ) : !instrOpen ? (
+            <p className="mt-1 text-sm text-slate-600">{tx("Instructions are hidden after the shift.")}</p>
+          ) : (
+            <div className="mt-3 space-y-3 text-sm">
+              {extra && (
+                <div className="rounded-xl bg-amber-50 p-3">
+                  <p className="font-semibold text-amber-900">📌 {tx("For this shift")}</p>
+                  <p className="mt-1 whitespace-pre-line text-slate-800">{extra}</p>
+                </div>
+              )}
+              {standard.map((f) => (
+                <div key={f.key}>
+                  <p className="font-semibold text-navy-900">{f.icon} {tx(f.label)}</p>
+                  <p className="mt-0.5 whitespace-pre-line text-slate-700">{f.text}</p>
+                </div>
+              ))}
+              <p className="text-xs text-slate-500">🔒 {tx("Please don't share these codes with anyone. They disappear after the shift.")}</p>
+              {booking.instrReadAt ? (
+                <p className="font-semibold text-emerald-700">✅ {tx("You confirmed you've read these · {when}", { when: dateTime(booking.instrReadAt) })}</p>
+              ) : (
+                <form action={confirmInstructionsRead}>
+                  <input type="hidden" name="bookingId" value={booking.id} />
+                  <button className="btn-primary w-full">✓ {tx("I've read the instructions")}</button>
+                </form>
+              )}
             </div>
           )}
         </div>

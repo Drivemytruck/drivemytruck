@@ -6,7 +6,10 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { LATE_CANCEL_HOURS, enforceNoShowPolicy } from "@/lib/reliability";
-import { line, notifyUser } from "@/lib/notify";
+import { addNotification, line, notifyUser } from "@/lib/notify";
+import { encrypt } from "@/lib/crypto";
+import { hasInstructions } from "@/lib/instructions";
+import { makeTx } from "@/lib/tx";
 import { after } from "next/server";
 import { getTx } from "@/lib/i18n";
 
@@ -28,7 +31,7 @@ async function loadForUser(bookingId: string) {
 export async function completeBooking(fd: FormData) {
   const { booking } = await loadForUser(String(fd.get("bookingId")));
   if (booking.status !== "CONFIRMED") return;
-  if (booking.job.startAt.getTime() > Date.now()) return; // can't complete before the job starts
+  if ((booking.agreedStartAt ?? booking.job.startAt).getTime() > Date.now()) return; // can't complete before the job starts
   await db.$transaction([
     db.booking.update({ where: { id: booking.id }, data: { status: "COMPLETED", completedAt: new Date() } }),
     db.job.update({ where: { id: booking.jobId }, data: { status: "COMPLETED" } }),
@@ -39,7 +42,7 @@ export async function completeBooking(fd: FormData) {
 export async function cancelBooking(fd: FormData) {
   const { user, booking, side } = await loadForUser(String(fd.get("bookingId")));
   if (booking.status !== "CONFIRMED") return;
-  const hoursToStart = (booking.job.startAt.getTime() - Date.now()) / 3600000;
+  const hoursToStart = ((booking.agreedStartAt ?? booking.job.startAt).getTime() - Date.now()) / 3600000;
   await db.$transaction([
     db.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED" } }),
     // Re-open the job so the company can find someone else (if it hasn't started yet).
@@ -80,7 +83,7 @@ export async function cancelBooking(fd: FormData) {
 export async function reportNoShow(fd: FormData) {
   const { booking, side } = await loadForUser(String(fd.get("bookingId")));
   if (side !== "COMPANY" || booking.status !== "CONFIRMED") return;
-  if (booking.job.startAt.getTime() > Date.now()) return; // only once the start time has passed
+  if ((booking.agreedStartAt ?? booking.job.startAt).getTime() > Date.now()) return; // only once the start time has passed
   const now = new Date();
   await db.$transaction([
     // completedAt starts the 14-day review window, so the company can still leave a review.
@@ -136,4 +139,53 @@ export async function leaveReview(_: ActionState, fd: FormData): Promise<ActionS
   });
   revalidatePath(`/bookings/${booking.id}`);
   return { ok: await T("Thanks! Your review will be published when both sides have reviewed, or after 14 days.") };
+}
+
+/** Company sends (or updates) the shift instructions for this booking. Codes never go in the email. */
+export async function sendInstructions(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { booking, side } = await loadForUser(String(fd.get("bookingId")));
+  if (side !== "COMPANY" || booking.status !== "CONFIRMED") return { error: await T("This booking is no longer active.") };
+  const extra = String(fd.get("instrExtra") ?? "").trim();
+  if (extra.length > 1500) return { error: await T("Each box can be up to 1500 characters.") };
+  const company = await db.companyProfile.findUnique({ where: { id: booking.companyId } });
+  if (!extra && !(company && hasInstructions(company))) return { error: await T("Add your standard instructions in your company profile, or write something for this shift.") };
+  const resend = !!booking.instrSentAt;
+  await db.booking.update({ where: { id: booking.id }, data: { instrExtra: encrypt(extra || null), instrSentAt: new Date(), instrReadAt: null } });
+  const driver = await db.driverProfile.findUnique({ where: { id: booking.driverId }, select: { userId: true } });
+  if (driver && company)
+    after(() =>
+      notifyUser(driver.userId, (tx, lang) => ({
+        subject: tx(resend ? "{company} updated your shift instructions" : "{company} sent instructions for your shift", { company: company.companyName }),
+        paragraphs: [
+          tx("Instructions for this job — how to get in, where the keys are and what to do — are waiting for you in the app:"),
+          line({ ...booking.job, startAt: booking.agreedStartAt ?? booking.job.startAt }, lang),
+          tx("For security, codes are never sent by email. Please read them and tap “I've read the instructions”."),
+        ],
+        cta: tx("Open instructions"),
+        path: `/bookings/${booking.id}`,
+        icon: "📋",
+      })),
+    );
+  revalidatePath(`/bookings/${booking.id}`);
+  return { ok: await T(resend ? "Instructions updated — the driver has been notified." : "Instructions sent — the driver has been notified.") };
+}
+
+/** Driver confirms they've read the instructions; the company sees a tick (in-app only, no email). */
+export async function confirmInstructionsRead(fd: FormData) {
+  const { booking, side } = await loadForUser(String(fd.get("bookingId")));
+  if (side !== "DRIVER" || !booking.instrSentAt || booking.instrReadAt) return;
+  await db.booking.update({ where: { id: booking.id }, data: { instrReadAt: new Date() } });
+  const [company, driver] = await Promise.all([
+    db.companyProfile.findUnique({ where: { id: booking.companyId }, select: { userId: true, user: { select: { locale: true } } } }),
+    db.driverProfile.findUnique({ where: { id: booking.driverId }, select: { fullName: true } }),
+  ]);
+  if (company && driver) {
+    const tx = makeTx(company.user.locale === "pl" ? "pl" : "en");
+    await addNotification(company.userId, {
+      icon: "✅",
+      title: tx("{name} has read the shift instructions", { name: driver.fullName }),
+      link: `/bookings/${booking.id}`,
+    });
+  }
+  revalidatePath(`/bookings/${booking.id}`);
 }

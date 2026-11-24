@@ -234,6 +234,13 @@ model CompanyProfile {
   alertRadiusMiles     Int                @default(30)
   alertClasses         String[] // empty = any class
   lastDigestAt         DateTime?
+  // Shift instructions for booked drivers (encrypted): site access, keys, paperwork, apps, out-of-hours contact.
+  instrAccess          String?
+  instrKeys            String?
+  instrPaperwork       String?
+  instrApps            String?
+  instrEmergency       String?
+  instrAuto            Boolean            @default(false) // send them automatically to every booked driver
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
@@ -307,6 +314,10 @@ model Booking {
   noShowAt        DateTime?
   disputeText     String? // driver's side if they dispute a no-show
   disputeStatus   String? // OPEN | UPHELD | OVERTURNED
+  instrExtra      String? // encrypted notes for this shift only (gate code today, truck reg…)
+  instrSentAt     DateTime? // company sent the shift instructions
+  instrOpenedAt   DateTime? // driver first opened them
+  instrReadAt     DateTime? // driver confirmed "I've read them"
   createdAt       DateTime       @default(now())
 
   reviews Review[]

@@ -4,7 +4,9 @@ import type { Metadata } from "next";
 import { requireCompany } from "@/lib/session";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Field, StatusBadge } from "@/components/ui";
-import { saveAlertSettings, updateCompanyProfile } from "../actions";
+import { saveAlertSettings, saveInstructions, updateCompanyProfile } from "../actions";
+import { INSTR_FIELDS, UNLOCK_HOURS_BEFORE } from "@/lib/instructions";
+import { decrypt } from "@/lib/crypto";
 import { LICENCE_CLASSES } from "@/lib/constants";
 import { CheckboxGroup } from "@/components/ui";
 import { PhotoUpload } from "@/components/PhotoUpload";
@@ -65,6 +67,25 @@ export default async function CompanyProfilePage({ searchParams }: { searchParam
           <SubmitButton pendingText={tx("Saving…")}>{tx("Save")}</SubmitButton>
         </ActionForm>
       </div>
+      <section id="instructions" className="card scroll-mt-20 p-5 sm:p-6">
+        <h2 className="h2">📋 {tx("Shift instructions for drivers")}</h2>
+        <p className="muted mt-1">
+          {tx("Nobody in the office at 4am? Write once how to start a shift with you — gate, keys, paperwork, apps. Only the driver you book can see them, and only from {h} hours before the shift until it ends.", { h: UNLOCK_HOURS_BEFORE })}
+        </p>
+        <p className="mt-2 text-xs text-slate-500">🔒 {tx("Stored encrypted. Codes are never sent by email. Tip: change gate and key-safe codes from time to time.")}</p>
+        <ActionForm action={saveInstructions} className="mt-4 space-y-4">
+          {INSTR_FIELDS.map((f) => (
+            <Field key={f.key} label={`${f.icon} ${tx(f.label)}`}>
+              <textarea className="input min-h-20" name={f.key} maxLength={1500} defaultValue={decrypt(company[f.key]) ?? ""} placeholder={tx(f.placeholder)} />
+            </Field>
+          ))}
+          <label className="flex items-start gap-3 text-sm font-semibold text-navy-900">
+            <input type="checkbox" name="instrAuto" defaultChecked={company.instrAuto} className="mt-0.5 h-5 w-5 shrink-0 accent-brand-500" />
+            {tx("Send these automatically to every driver I book")}
+          </label>
+          <SubmitButton pendingText={tx("Saving…")}>{tx("Save instructions")}</SubmitButton>
+        </ActionForm>
+      </section>
       <section className="card p-5 sm:p-6">
         <h2 className="h2">🔔 {tx("Driver availability alerts")}</h2>
         <p className="muted mt-1">

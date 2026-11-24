@@ -17,6 +17,8 @@ import { getTx } from "@/lib/i18n";
 
 const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
 import type { ActionState } from "@/components/forms";
+import { INSTR_KEYS } from "@/lib/instructions";
+import { encrypt } from "@/lib/crypto";
 
 const opt = (s: z.ZodString) => s.optional().transform((v) => (v ? v : null));
 
@@ -272,4 +274,18 @@ export async function saveAlertSettings(_: ActionState, fd: FormData): Promise<A
   await db.companyProfile.update({ where: { id: company.id }, data: { alertsEnabled: on, alertRadiusMiles: radius, alertClasses: classes } });
   revalidatePath("/company/profile");
   return { ok: await T(on ? "Saved — we'll email you when drivers near you become available." : "Saved — availability emails are off.") };
+}
+
+/** Standard shift instructions (gate, keys, paperwork…) — encrypted, shown only to booked drivers around the shift. */
+export async function saveInstructions(_: ActionState, fd: FormData): Promise<ActionState> {
+  const { company } = await requireCompany();
+  const data: Record<string, string | null> = {};
+  for (const k of INSTR_KEYS) {
+    const v = String(fd.get(k) ?? "").trim();
+    if (v.length > 1500) return { error: await T("Each box can be up to 1500 characters.") };
+    data[k] = encrypt(v || null);
+  }
+  await db.companyProfile.update({ where: { id: company.id }, data: { ...data, instrAuto: fd.get("instrAuto") === "on" } });
+  revalidatePath("/company/profile");
+  return { ok: await T("Instructions saved.") };
 }
