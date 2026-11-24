@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { notifyDriversOfNewJob } from "@/lib/alerts";
+import { line, notifyUser } from "@/lib/notify";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
@@ -171,6 +172,17 @@ export async function markHired(_: ActionState, fd: FormData): Promise<ActionSta
     db.driverProfile.update({ where: { id: driverId }, data: { openToPermanent: false, permanentUntil: null } }),
   ]);
   revalidatePath(`/company/jobs/${job.id}`);
+  const d = await db.driverProfile.findUnique({ where: { id: driverId }, select: { userId: true } });
+  const company = await db.companyProfile.findUnique({ where: { id: job.companyId }, select: { companyName: true } });
+  if (d)
+    after(() =>
+      notifyUser(d.userId, (tx, lang) => ({
+        subject: tx("{company} hired you 🎉", { company: company?.companyName ?? "" }),
+        paragraphs: [tx("{company} marked you as hired for this role:", { company: company?.companyName ?? "" }), line(job, lang)],
+        cta: tx("View job"),
+        path: `/jobs/${job.id}`,
+      })),
+    );
   return { ok: await T("Marked as hired 🎉 The advert has been closed.") };
 }
 
@@ -198,6 +210,17 @@ export async function acceptApplicant(_: ActionState, fd: FormData): Promise<Act
   try {
     const booking = await bookDriver(job.id, driverId);
     revalidatePath(`/company/jobs/${job.id}`);
+    const d = await db.driverProfile.findUnique({ where: { id: driverId }, select: { userId: true } });
+    const company = await db.companyProfile.findUnique({ where: { id: job.companyId }, select: { companyName: true } });
+    if (d && company)
+      after(() =>
+        notifyUser(d.userId, (tx, lang) => ({
+          subject: tx("You're booked: {job}", { job: line(job, lang) }),
+          paragraphs: [tx("Good news — {company} has booked you for this job:", { company: company.companyName }), line(job, lang), tx("Their contact details are on the booking page.")],
+          cta: tx("View booking"),
+          path: `/bookings/${booking.id}`,
+        })),
+      );
     redirect(`/bookings/${booking.id}?new=1`);
   } catch (e) {
     if (e instanceof BookingError) return { error: await T(e.message) };
@@ -220,6 +243,19 @@ export async function inviteDriver(_: ActionState, fd: FormData): Promise<Action
     update: { status: "INVITED" },
   });
   revalidatePath(`/drivers/${driverId}`);
+  const company = await db.companyProfile.findUnique({ where: { id: job.companyId }, select: { companyName: true } });
+  after(() =>
+    notifyUser(driver.userId, (tx, lang) => ({
+      subject: tx("{company} invited you to a job", { company: company?.companyName ?? "" }),
+      paragraphs: [
+        tx("{company} would like you for this job:", { company: company?.companyName ?? "" }),
+        line(job, lang),
+        job.kind === "PERMANENT" ? tx("Let them know if you're interested.") : tx("Accept the invite to get booked."),
+      ],
+      cta: tx("View job"),
+      path: `/jobs/${job.id}`,
+    })),
+  );
   return { ok: await T("Invite sent. The driver will see it under “My work”.") };
 }
 

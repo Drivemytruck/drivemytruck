@@ -8,7 +8,9 @@ import { dateTime, money } from "@/lib/format";
 import { Empty, Stat, StatusBadge } from "@/components/ui";
 import { todayDate } from "@/lib/availability";
 import { daysLeft, isLive } from "@/lib/jobs";
-import { distanceMiles } from "@/lib/geo";
+import { approxLocation, distanceMiles } from "@/lib/geo";
+import { windowLabel } from "@/lib/availability";
+import { DriversMapLoader } from "@/components/DriversMapLoader";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -38,7 +40,16 @@ export default async function CompanyHome() {
   const weekStart = todayDate();
   const weekRows = await db.availability.findMany({
     where: { date: { gte: weekStart, lt: new Date(weekStart.getTime() + 7 * 86400000) }, driver: { user: { suspended: false } } },
-    select: { date: true, driver: { select: { lat: true, lng: true } } },
+    select: {
+      date: true,
+      startTime: true,
+      endTime: true,
+      slot: true,
+      rateAmount: true,
+      rateType: true,
+      driver: { select: { id: true, fullName: true, town: true, lat: true, lng: true, licenceClasses: true, verificationStatus: true, rateAmount: true } },
+    },
+    orderBy: { date: "asc" },
   });
   const dayFmt = new Intl.DateTimeFormat(lang === "pl" ? "pl-PL" : "en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" });
   const week = Array.from({ length: 7 }, (_, i) => {
@@ -49,12 +60,32 @@ export default async function CompanyHome() {
     }).length;
     return { iso: d.toISOString().slice(0, 10), label: i === 0 ? tx("Today") : dayFmt.format(d), n };
   });
+  // One pin per driver free this week (their first free day), approximate location.
+  const firstSlot = new Map<string, (typeof weekRows)[number]>();
+  for (const r of weekRows) {
+    if (r.driver.lat == null || r.driver.lng == null || firstSlot.has(r.driver.id)) continue;
+    const dist = distanceMiles(company, r.driver);
+    if (dist != null && dist > company.alertRadiusMiles) continue;
+    firstSlot.set(r.driver.id, r);
+  }
+  const mapDrivers = [...firstSlot.values()].map((r) => {
+    const rate = r.rateAmount != null ? money(r.rateAmount) : r.driver.rateAmount != null ? money(r.driver.rateAmount) : "";
+    return {
+      id: r.driver.id,
+      ...approxLocation(r.driver.id, r.driver.lat!, r.driver.lng!),
+      label: `${r.driver.fullName.split(" ")[0]} · ${dayFmt.format(r.date)}`,
+      name: r.driver.fullName,
+      info: `${r.driver.licenceClasses.map(licenceLabel).join(", ")}${r.driver.town ? ` · ${r.driver.town}` : ""}`,
+      when: [dayFmt.format(r.date), tx(windowLabel(r)), rate].filter(Boolean).join(" · "),
+      verified: r.driver.verificationStatus === "VERIFIED",
+    };
+  });
 
   return (
     <div className="page space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="h1">Welcome back, {company.companyName}</h1>
+          <h1 className="h1">{tx("Welcome back, {name}", { name: company.companyName })}</h1>
           <p className="muted">{tx("Find drivers. Keep moving.")}</p>
         </div>
         <Link href="/company/jobs/new" className="btn-primary">
@@ -102,6 +133,15 @@ export default async function CompanyHome() {
             ))}
           </div>
         </div>
+        <div className="relative z-0">
+          <DriversMapLoader
+            home={company.lat != null && company.lng != null ? { lat: company.lat, lng: company.lng } : null}
+            radiusMiles={company.alertRadiusMiles}
+            labels={{ open: tx("Open profile & invite →"), base: company.companyName }}
+            drivers={mapDrivers}
+          />
+        </div>
+        <p className="text-xs text-slate-500">{tx("Green pins are verified drivers. Locations are approximate to protect drivers' privacy.")}</p>
       </section>
 
       {needsAction.length > 0 && (

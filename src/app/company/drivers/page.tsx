@@ -34,7 +34,7 @@ export default async function FindDriversPage({
   const radius = Math.min(Math.max(Number(sp.radius) || 30, 5), 300);
   const verifiedOnly = sp.verified === "1";
   const permOnly = sp.perm === "1";
-  const view = sp.view === "map" ? "map" : "list";
+  const view = sp.view === "list" ? "list" : "map"; // map first: easiest to see who is where
 
   // Everyone matching the filters, with their availability for the next 2 weeks.
   const covering = jobClass ? ["C+E", "C", "C1"].filter((c) => drivableClasses([c]).includes(jobClass)) : null;
@@ -86,7 +86,7 @@ export default async function FindDriversPage({
       radius: sp.radius,
       verified: verifiedOnly ? "1" : undefined,
       perm: permOnly ? "1" : undefined,
-      view: view === "map" ? "map" : undefined,
+      view: view === "list" ? "list" : undefined,
       ...patch,
     };
     for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
@@ -134,7 +134,7 @@ export default async function FindDriversPage({
 
       <form className="card grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:items-end">
         <input type="hidden" name="date" value={date} />
-        <input type="hidden" name="view" value={view === "map" ? "map" : ""} />
+        <input type="hidden" name="view" value={view === "list" ? "list" : ""} />
         <label>
           <span className="label">{tx("Class")}</span>
           <select name="class" defaultValue={jobClass} className="input">
@@ -164,11 +164,11 @@ export default async function FindDriversPage({
       </form>
 
       <div className="grid grid-cols-2 rounded-xl border border-slate-300 bg-white p-1 text-sm font-semibold">
-        <Link href={qs({ view: undefined })} className={`rounded-lg py-2 text-center ${view === "list" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
-          ☰ {tx("List")}
-        </Link>
-        <Link href={qs({ view: "map" })} className={`rounded-lg py-2 text-center ${view === "map" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
+        <Link href={qs({ view: undefined })} className={`rounded-lg py-2 text-center ${view === "map" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
           🗺️ {tx("Map")}
+        </Link>
+        <Link href={qs({ view: "list" })} className={`rounded-lg py-2 text-center ${view === "list" ? "bg-navy-900 text-white" : "text-slate-600"}`}>
+          ☰ {tx("List")}
         </Link>
       </div>
 

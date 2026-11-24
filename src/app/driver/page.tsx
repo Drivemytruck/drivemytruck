@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireDriver } from "@/lib/session";
-import { distanceMiles } from "@/lib/geo";
+import { distanceMiles, withinReach } from "@/lib/geo";
 import { drivableClasses, LICENCE_CLASSES } from "@/lib/constants";
 import { ratingSummaries } from "@/lib/reviews";
 import { JobCard } from "@/components/JobCard";
@@ -67,7 +67,7 @@ export default async function DriverHome({ searchParams }: { searchParams: Promi
   const ratings = await ratingSummaries([...new Set(jobs.map((j) => j.company.userId))]);
   const allWithDistance = jobs.map((j) => ({ job: j, distance: distanceMiles(driver, j) }));
   const withDistance = allWithDistance
-    .filter(({ distance }) => showAnyDistance || distance == null || distance <= driver.travelRadiusMiles)
+    .filter(({ distance }) => showAnyDistance || withinReach(distance, driver.travelRadiusMiles))
     .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999) || a.job.startAt.getTime() - b.job.startAt.getTime());
   const TYPES = [
     { v: "all", l: "All jobs" },

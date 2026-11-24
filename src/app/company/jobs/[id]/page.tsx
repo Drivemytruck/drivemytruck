@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireCompany } from "@/lib/session";
 import { drivableClasses, licenceLabel } from "@/lib/constants";
 import { dateOnly, dateTime, money, payUnit } from "@/lib/format";
-import { distanceMiles } from "@/lib/geo";
+import { distanceMiles, withinReach } from "@/lib/geo";
 import { ratingSummaries } from "@/lib/reviews";
 import { avatarUrl } from "@/lib/avatar";
 import { reliabilityFor } from "@/lib/reliability";
@@ -71,7 +71,7 @@ export default async function CompanyJobPage({
           })
         )
           .map((d) => ({ d, distance: distanceMiles(d, job), day: undefined as undefined | (typeof d.availability)[number] }))
-          .filter(({ d, distance }) => distance == null || distance <= Math.max(d.travelRadiusMiles, 30))
+          .filter(({ d, distance }) => withinReach(distance, Math.max(d.travelRadiusMiles, 30)))
           .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999))
           .slice(0, 10)
       : []
@@ -89,7 +89,7 @@ export default async function CompanyJobPage({
           })
         )
           .map((d) => ({ d, distance: distanceMiles(d, job), day: d.availability[0] }))
-          .filter(({ d, distance, day }) => (distance == null || distance <= d.travelRadiusMiles) && (!day || jobFitsWindow(job.startAt, day)))
+          .filter(({ d, distance, day }) => withinReach(distance, d.travelRadiusMiles) && (!day || jobFitsWindow(job.startAt, day)))
           .sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999))
           .slice(0, 10)
       : [];

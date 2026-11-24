@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/session";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { LATE_CANCEL_HOURS, enforceNoShowPolicy } from "@/lib/reliability";
+import { line, notifyUser } from "@/lib/notify";
+import { after } from "next/server";
 import { getTx } from "@/lib/i18n";
 
 const T = async (s: string, v?: Record<string, string | number>) => (await getTx()).tx(s, v);
@@ -58,6 +60,19 @@ export async function cancelBooking(fd: FormData) {
     }),
   ]);
   revalidatePath(`/bookings/${booking.id}`);
+  const otherUserId = side === "DRIVER" ? booking.company.userId : booking.driver.userId;
+  after(() =>
+    notifyUser(otherUserId, (tx, lang) => ({
+      subject: tx("Booking cancelled: {job}", { job: line(booking.job, lang) }),
+      paragraphs: [
+        side === "DRIVER" ? tx("The driver has cancelled this booking:") : tx("The company has cancelled this booking:"),
+        line(booking.job, lang),
+        side === "DRIVER" ? tx("The job is open again so other drivers can apply.") : tx("Sorry about that — have a look for other jobs near you."),
+      ],
+      cta: side === "DRIVER" ? tx("Find another driver") : tx("See jobs near me"),
+      path: side === "DRIVER" ? `/company/jobs/${booking.jobId}` : "/driver",
+    })),
+  );
 }
 
 /** Company reports that the booked driver didn't turn up. */
@@ -75,6 +90,14 @@ export async function reportNoShow(fd: FormData) {
     }),
   ]);
   await enforceNoShowPolicy(booking.driver.userId);
+  after(() =>
+    notifyUser(booking.driver.userId, (tx, lang) => ({
+      subject: tx("A no-show was reported"),
+      paragraphs: [tx("The company reported that you didn't turn up for:"), line(booking.job, lang), tx("If that's not right, you can dispute it from the booking page.")],
+      cta: tx("View booking"),
+      path: `/bookings/${booking.id}`,
+    })),
+  );
   revalidatePath(`/bookings/${booking.id}`);
 }
 

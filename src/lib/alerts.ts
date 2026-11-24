@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./db";
-import { distanceMiles } from "./geo";
+import { distanceMiles, withinReach } from "./geo";
 import { canDriveClass, licenceLabel } from "./constants";
 import { jobFitsWindow, windowLabel, dayRateLabel } from "./availability";
 import { brandedEmail, sendEmail, sendEmailBatch, siteUrl } from "./email";
@@ -35,7 +35,7 @@ export async function notifyJobMatches(driverId: string, newDates: Date[]) {
     const slot = driver.availability.find((a) => a.date.getTime() === day.getTime());
     if (!slot || !jobFitsWindow(job.startAt, slot)) continue;
     const dist = distanceMiles(driver, job);
-    if (dist != null && dist > driver.travelRadiusMiles) continue;
+    if (!withinReach(dist, driver.travelRadiusMiles)) continue;
     const already = await db.jobMatchAlert.findUnique({ where: { jobId_driverId: { jobId: job.id, driverId } } });
     if (already) continue;
     await db.jobMatchAlert.create({ data: { jobId: job.id, driverId } });
@@ -117,7 +117,7 @@ export async function sendAvailabilityDigests() {
 
 const MAX_INSTANT_PER_DAY = 5;
 
-function jobLine(job: { licenceClass: string; town: string | null; postcode: string; kind: string; startAt: Date; schedule: string | null; payAmount: number; payType: "SHIFT" | "HOURLY" | "ANNUAL" }, lang: Lang) {
+export function jobLine(job: { licenceClass: string; town: string | null; postcode: string; kind: string; startAt: Date; schedule: string | null; payAmount: number; payType: "SHIFT" | "HOURLY" | "ANNUAL" }, lang: Lang) {
   const tx = makeTx(lang);
   const when =
     job.kind === "PERMANENT"
@@ -153,7 +153,7 @@ export async function notifyDriversOfNewJob(jobId: string) {
   const messages: { to: string; subject: string; html: string; text: string }[] = [];
   for (const d of drivers) {
     const dist = distanceMiles(d, job);
-    if (dist != null && dist > d.travelRadiusMiles) continue;
+    if (!withinReach(dist, d.travelRadiusMiles)) continue;
     if (job.kind === "SHIFT" && !(d.availability[0] && jobFitsWindow(job.startAt, d.availability[0]))) continue;
     const recent = await db.driverJobAlert.count({ where: { driverId: d.id, createdAt: { gte: since } } });
     if (recent >= MAX_INSTANT_PER_DAY) continue;
@@ -206,7 +206,7 @@ export async function sendJobDigestsToDrivers() {
     const matches = jobs
       .filter((j) => j.createdAt > after && !seen.has(`${j.id}:${d.id}`) && canDriveClass(d.licenceClasses, j.licenceClass))
       .map((j) => ({ j, dist: distanceMiles(d, j) }))
-      .filter(({ dist }) => dist != null && dist <= d.travelRadiusMiles)
+      .filter(({ dist }) => dist != null && withinReach(dist, d.travelRadiusMiles))
       .sort((a, b) => a.dist! - b.dist!)
       .slice(0, 8);
     if (!matches.length) continue;

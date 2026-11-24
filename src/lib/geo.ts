@@ -63,3 +63,15 @@ export function approxLocation(id: string, lat: number, lng: number) {
   const jitter = (n: number) => (((h >> n) & 0xff) / 255 - 0.5) * 0.012;
   return { lat: Math.round(lat * 100) / 100 + jitter(0), lng: Math.round(lng * 100) / 100 + jitter(8) };
 }
+
+/**
+ * Drivers' travel distance is a guide: we also include jobs a bit further away
+ * (25% more, at least 10 extra miles) — a good job is often worth the extra drive.
+ */
+export function reachMiles(radius: number) {
+  return Math.round(radius + Math.max(10, radius * 0.25));
+}
+
+export function withinReach(distance: number | null, radius: number) {
+  return distance == null || distance <= reachMiles(radius);
+}

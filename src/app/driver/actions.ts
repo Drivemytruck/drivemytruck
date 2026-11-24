@@ -12,6 +12,8 @@ import { TIME_RE, todayDate } from "@/lib/availability";
 import { contactDetailsError } from "@/lib/contact-guard";
 import { isLive } from "@/lib/jobs";
 import { notifyJobMatches } from "@/lib/alerts";
+import { line, notifyUser } from "@/lib/notify";
+import { after } from "next/server";
 import { encrypt } from "@/lib/crypto";
 import { getTx } from "@/lib/i18n";
 
@@ -182,7 +184,17 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
   if (existing?.status === "INVITED" && job.kind === "SHIFT") {
     // Accepting an invite books the driver straight away.
     try {
-      await bookDriver(jobId, driver.id);
+      const booking = await bookDriver(jobId, driver.id);
+      const company = await db.companyProfile.findUnique({ where: { id: job.companyId }, select: { userId: true } });
+      if (company)
+        after(() =>
+          notifyUser(company.userId, (tx, lang) => ({
+            subject: tx("{name} accepted your invite — booked", { name: driver.fullName.split(" ")[0] }),
+            paragraphs: [tx("{name} accepted your invite and is now booked for:", { name: driver.fullName }), line(job, lang)],
+            cta: tx("View booking"),
+            path: `/bookings/${booking.id}`,
+          })),
+        );
     } catch (e) {
       return { error: await T(e instanceof BookingError ? e.message : "Something went wrong.") };
     }
@@ -195,6 +207,27 @@ export async function applyToJob(_: ActionState, fd: FormData): Promise<ActionSt
     update: { status: "APPLIED", message },
   });
   revalidatePath(`/jobs/${jobId}`);
+  if (existing?.status !== "APPLIED") {
+    const company = await db.companyProfile.findUnique({ where: { id: job.companyId }, select: { userId: true } });
+    if (company)
+      after(() =>
+        notifyUser(company.userId, (tx, lang) => ({
+          subject:
+            job.kind === "PERMANENT"
+              ? tx("{name} is interested in your role", { name: driver.fullName.split(" ")[0] })
+              : tx("{name} is available for your job", { name: driver.fullName.split(" ")[0] }),
+          paragraphs: [
+            job.kind === "PERMANENT"
+              ? tx("{name} is interested in your permanent role:", { name: driver.fullName })
+              : tx("{name} says they're available for your job:", { name: driver.fullName }),
+            line(job, lang),
+            ...(message ? [`“${message}”`] : []),
+          ],
+          cta: job.kind === "PERMANENT" ? tx("View driver") : tx("View driver & book"),
+          path: `/company/jobs/${job.id}`,
+        })),
+      );
+  }
   return {
     ok: await T(job.kind === "PERMANENT" ? "Sent! The company can now see your profile and contact details." : "Sent! The company will see you're available."),
   };
